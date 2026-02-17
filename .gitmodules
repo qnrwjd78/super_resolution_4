@@ -1,0 +1,15 @@
+[submodule "repos/HAT"]
+	path = repos/HAT
+	url = https://github.com/XPixelGroup/HAT.git
+[submodule "repos/MambaIR"]
+	path = repos/MambaIR
+	url = https://github.com/csguoh/MambaIR.git
+[submodule "repos/SwinIR"]
+	path = repos/SwinIR
+	url = https://github.com/JingyunLiang/SwinIR.git
+[submodule "repos/swin2sr"]
+	path = repos/swin2sr
+	url = https://github.com/mv-lab/swin2sr.git
+[submodule "repos/DAT"]
+	path = repos/DAT
+	url = https://github.com/zhengchen1999/DAT.git
