@@ -1,0 +1,5 @@
+# Python 캐시 파일
+**/__pycache__/
+
+# 모델 출력 결과
+output/
