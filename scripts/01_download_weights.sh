@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SR_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"          # .../super_resolution_4
-WEIGHT_DIR="$SR_DIR/weight"
+WEIGHT_DIR="$SR_DIR/weights"
 
 # Choose models to download (space-separated).
 # Default: download everything we support here.
