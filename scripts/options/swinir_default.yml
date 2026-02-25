@@ -1,0 +1,5 @@
+task: classical_sr
+scale: 4
+training_patch_size: 48
+tile: 0
+tile_overlap: 32

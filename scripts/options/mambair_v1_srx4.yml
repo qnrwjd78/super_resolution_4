@@ -1,0 +1,35 @@
+# MambaIR v1 x4 inference
+name: MambaIR_x4
+model_type: MambaIRModel
+scale: 4
+num_gpu: 1
+manual_seed: 10
+
+datasets:
+  test_1:
+    name: DIV2K_val
+    type: SingleImageDataset
+    dataroot_lq: ""
+    io_backend:
+      type: disk
+
+network_g:
+  type: MambaIR
+  upscale: 4
+  in_chans: 3
+  img_size: 64
+  img_range: 1.
+  d_state: 16
+  depths: [6, 6, 6, 6, 6, 6]
+  embed_dim: 180
+  mlp_ratio: 2
+  upsampler: "pixelshuffle"
+  resi_connection: "1conv"
+
+path:
+  pretrain_network_g: ""
+  strict_load_g: true
+
+val:
+  save_img: true
+  suffix: "x4"

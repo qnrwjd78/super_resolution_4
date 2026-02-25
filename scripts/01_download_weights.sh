@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Download pretrained weights to the exact paths expected by your run_*.sh scripts.
+# Download pretrained weights into super_resolution_4/weight/<model>/...
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SR_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"          # .../super_resolution_4
-REPOS_DIR="$SR_DIR/repos"
+WEIGHT_DIR="$SR_DIR/weight"
 
 # Choose models to download (space-separated).
-# default: the three you are missing now
-MODELS="${MODELS:-mambairv2 dat hat}"
-# You may also include: swin2sr swinir
-# e.g. MODELS="mambairv2 dat hat swin2sr swinir"
+# Default: download everything we support here.
+# Available keys: hat mambair mambairv2 dat swinir swin2sr
+# e.g. MODELS="hat swinir"
+MODELS="${MODELS:-hat mambair dat swinir swin2sr}"
 
 has() { command -v "$1" >/dev/null 2>&1; }
 
@@ -41,39 +41,57 @@ download() {
 }
 
 echo "SR_DIR   : $SR_DIR"
-echo "REPOS_DIR: $REPOS_DIR"
+echo "WEIGHT_DIR: $WEIGHT_DIR"
 echo "MODELS   : $MODELS"
 echo
 
 for m in $MODELS; do
   case "$m" in
+    hat)
+      HAT_BASE="https://huggingface.co/jaideepsingh/upscale_models/resolve/main/HAT"
+      download "$HAT_BASE/HAT_SRx4.pth" "$WEIGHT_DIR/hat/HAT_SRx4.pth"
+      download "$HAT_BASE/HAT_SRx4_ImageNet-pretrain.pth" "$WEIGHT_DIR/hat/HAT_SRx4_ImageNet-pretrain.pth"
+      download "$HAT_BASE/HAT-L_SRx4_ImageNet-pretrain.pth" "$WEIGHT_DIR/hat/HAT-L_SRx4_ImageNet-pretrain.pth"
+      download "$HAT_BASE/HAT-S_SRx4.pth" "$WEIGHT_DIR/hat/HAT-S_SRx4.pth"
+      download "$HAT_BASE/Real_HAT_GAN_SRx4.pth" "$WEIGHT_DIR/hat/Real_HAT_GAN_SRx4.pth"
+      # upstream filename is Real_HAT_GAN_sharper.pth (rename on save)
+      download "$HAT_BASE/Real_HAT_GAN_sharper.pth" "$WEIGHT_DIR/hat/Real_HAT_GAN_SRx4_sharper.pth"
+      ;;
+
+    mambair)
+      MAMBAIR_BASE="https://huggingface.co/cguoh/MambaIR/resolve/main"
+      # rename on save to match your requested filenames
+      download "$MAMBAIR_BASE/MambaIRv1_ckpt/MambaIR_classicSRx4.pth" "$WEIGHT_DIR/mambair/MambaIR_SRx4.pth"
+      download "$MAMBAIR_BASE/MambaIRv2_ckpt/mambairv2_classicSR_Base_x4.pth" "$WEIGHT_DIR/mambair/MambaIRv2_SRx4.pth"
+      ;;
+
     mambairv2)
-      # Official GitHub release asset (tag v1.0)
-      # file expected by your script:
-      # repos/MambaIR/experiments/pretrained_models/mambairv2_classicSR_Base_x4.pth
-      download \
-        "https://github.com/csguoh/MambaIR/releases/download/v1.0/mambairv2_classicSR_Base_x4.pth" \
-        "$REPOS_DIR/MambaIR/experiments/pretrained_models/mambairv2_classicSR_Base_x4.pth"
+      MAMBAIR_BASE="https://huggingface.co/cguoh/MambaIR/resolve/main"
+      download "$MAMBAIR_BASE/MambaIRv2_ckpt/mambairv2_classicSR_Base_x4.pth" "$WEIGHT_DIR/mambair/MambaIRv2_SRx4.pth"
+      ;;
+
+    swinir)
+      SWINIR_BASE="https://github.com/JingyunLiang/SwinIR/releases/download/v0.0"
+      download "$SWINIR_BASE/001_classicalSR_DIV2K_s48w8_SwinIR-M_x4.pth" "$WEIGHT_DIR/swinir/001_classicalSR_DIV2K_s48w8_SwinIR-M_x4.pth"
+      download "$SWINIR_BASE/001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth" "$WEIGHT_DIR/swinir/001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth"
+      download "$SWINIR_BASE/002_lightweightSR_DIV2K_s64w8_SwinIR-S_x4.pth" "$WEIGHT_DIR/swinir/002_lightweightSR_DIV2K_s64w8_SwinIR-S_x4.pth"
+      download "$SWINIR_BASE/003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.pth" "$WEIGHT_DIR/swinir/003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.pth"
+      download "$SWINIR_BASE/003_realSR_BSRGAN_DFOWMFC_s64w8_SwinIR-L_x4_GAN.pth" "$WEIGHT_DIR/swinir/003_realSR_BSRGAN_DFOWMFC_s64w8_SwinIR-L_x4_GAN.pth"
+      ;;
+
+    swin2sr)
+      SWIN2SR_BASE="https://github.com/mv-lab/swin2sr/releases/download/v0.0.1"
+      download "$SWIN2SR_BASE/Swin2SR_ClassicalSR_X4_64.pth" "$WEIGHT_DIR/swin2sr/Swin2SR_ClassicalSR_X4_64.pth"
+      download "$SWIN2SR_BASE/Swin2SR_RealworldSR_X4_64_BSRGAN_PSNR.pth" "$WEIGHT_DIR/swin2sr/Swin2SR_RealworldSR_X4_64_BSRGAN_PSNR.pth"
+      download "$SWIN2SR_BASE/Swin2SR_CompressedSR_X4_48.pth" "$WEIGHT_DIR/swin2sr/Swin2SR_CompressedSR_X4_48.pth"
       ;;
 
     dat)
-      # DAT official provides weights via Google Drive, but Drive download is annoying in headless Docker.
-      # So we use a HuggingFace mirror pinned to a commit (stable path).
-      # expected:
-      # repos/DAT/experiments/pretrained_models/DAT/DAT_x4.pth
-      download \
-        "https://huggingface.co/w-e-w/DAT/resolve/0282d9e2afcf7d1b4069a9e379e437c9f1ecc392/experiments/pretrained_models/DAT/DAT_x4.pth" \
-        "$REPOS_DIR/DAT/experiments/pretrained_models/DAT/DAT_x4.pth"
-      ;;
-
-    hat)
-      # HAT official provides weights via Google Drive/Baidu.
-      # We use a HuggingFace mirror pinned to a commit (stable path).
-      # expected:
-      # repos/HAT/experiments/pretrained_models/HAT_SRx4_ImageNet-pretrain.pth
-      download \
-        "https://huggingface.co/Acly/hat/resolve/8403819bcbf5959d54c72383f0725f2525472d30/HAT_SRx4_ImageNet-pretrain.pth" \
-        "$REPOS_DIR/HAT/experiments/pretrained_models/HAT_SRx4_ImageNet-pretrain.pth"
+      DAT_BASE="https://huggingface.co/w-e-w/DAT/resolve/0282d9e2afcf7d1b4069a9e379e437c9f1ecc392/experiments/pretrained_models"
+      download "$DAT_BASE/DAT/DAT_x4.pth" "$WEIGHT_DIR/dat/DAT_x4.pth"
+      download "$DAT_BASE/DAT-S/DAT_S_x4.pth" "$WEIGHT_DIR/dat/DAT_S_x4.pth"
+      download "$DAT_BASE/DAT-2/DAT_2_x4.pth" "$WEIGHT_DIR/dat/DAT_2_x4.pth"
+      download "$DAT_BASE/DAT-light/DAT_light_x4.pth" "$WEIGHT_DIR/dat/DAT_light_x4.pth"
       ;;
 
     *)
@@ -88,8 +106,38 @@ echo "Done."
 echo "Downloaded files:"
 for m in $MODELS; do
   case "$m" in
-    mambairv2) echo " - $REPOS_DIR/MambaIR/experiments/pretrained_models/mambairv2_classicSR_Base_x4.pth" ;;
-    dat)      echo " - $REPOS_DIR/DAT/experiments/pretrained_models/DAT/DAT_x4.pth" ;;
-    hat)      echo " - $REPOS_DIR/HAT/experiments/pretrained_models/HAT_SRx4_ImageNet-pretrain.pth" ;;
+    hat)
+      echo " - $WEIGHT_DIR/hat/HAT_SRx4.pth"
+      echo " - $WEIGHT_DIR/hat/HAT_SRx4_ImageNet-pretrain.pth"
+      echo " - $WEIGHT_DIR/hat/HAT-L_SRx4_ImageNet-pretrain.pth"
+      echo " - $WEIGHT_DIR/hat/HAT-S_SRx4.pth"
+      echo " - $WEIGHT_DIR/hat/Real_HAT_GAN_SRx4.pth"
+      echo " - $WEIGHT_DIR/hat/Real_HAT_GAN_SRx4_sharper.pth"
+      ;;
+    mambair)
+      echo " - $WEIGHT_DIR/mambair/MambaIR_SRx4.pth"
+      echo " - $WEIGHT_DIR/mambair/MambaIRv2_SRx4.pth"
+      ;;
+    mambairv2)
+      echo " - $WEIGHT_DIR/mambair/MambaIRv2_SRx4.pth"
+      ;;
+    swinir)
+      echo " - $WEIGHT_DIR/swinir/001_classicalSR_DIV2K_s48w8_SwinIR-M_x4.pth"
+      echo " - $WEIGHT_DIR/swinir/001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth"
+      echo " - $WEIGHT_DIR/swinir/002_lightweightSR_DIV2K_s64w8_SwinIR-S_x4.pth"
+      echo " - $WEIGHT_DIR/swinir/003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.pth"
+      echo " - $WEIGHT_DIR/swinir/003_realSR_BSRGAN_DFOWMFC_s64w8_SwinIR-L_x4_GAN.pth"
+      ;;
+    swin2sr)
+      echo " - $WEIGHT_DIR/swin2sr/Swin2SR_ClassicalSR_X4_64.pth"
+      echo " - $WEIGHT_DIR/swin2sr/Swin2SR_RealworldSR_X4_64_BSRGAN_PSNR.pth"
+      echo " - $WEIGHT_DIR/swin2sr/Swin2SR_CompressedSR_X4_48.pth"
+      ;;
+    dat)
+      echo " - $WEIGHT_DIR/dat/DAT_x4.pth"
+      echo " - $WEIGHT_DIR/dat/DAT_S_x4.pth"
+      echo " - $WEIGHT_DIR/dat/DAT_2_x4.pth"
+      echo " - $WEIGHT_DIR/dat/DAT_light_x4.pth"
+      ;;
   esac
 done

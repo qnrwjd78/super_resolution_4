@@ -1,0 +1,36 @@
+# DAT-2 x4 inference
+name: DAT_2_x4
+model_type: DATModel
+scale: 4
+num_gpu: 1
+manual_seed: 10
+
+datasets:
+  test_1:
+    name: DIV2K_val
+    type: SingleImageDataset
+    dataroot_lq: ""
+    io_backend:
+      type: disk
+
+network_g:
+  type: DAT
+  upscale: 4
+  in_chans: 3
+  img_size: 64
+  img_range: 1.
+  split_size: [8, 32]
+  depth: [6, 6, 6, 6, 6, 6]
+  embed_dim: 180
+  num_heads: [6, 6, 6, 6, 6, 6]
+  expansion_factor: 2
+  resi_connection: "1conv"
+
+path:
+  pretrain_network_g: ""
+  strict_load_g: true
+
+val:
+  save_img: true
+  suffix: "x4"
+  use_chop: false

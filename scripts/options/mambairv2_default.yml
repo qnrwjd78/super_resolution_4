@@ -1,0 +1,40 @@
+# MambaIRv2 x4 inference (template for scripts/02_run_mambairv2_x4.py)
+name: MambaIRv2_x4
+model_type: MambaIRv2Model
+scale: 4
+num_gpu: 1
+manual_seed: 10
+
+datasets:
+  test_1:
+    name: DIV2K_val
+    type: SingleImageDataset
+    dataroot_lq: ""
+    io_backend:
+      type: disk
+
+network_g:
+  type: MambaIRv2
+  upscale: 4
+  in_chans: 3
+  img_size: 64
+  img_range: 1.
+  embed_dim: 174
+  d_state: 16
+  depths: [6, 6, 6, 6, 6, 6]
+  num_heads: [6, 6, 6, 6, 6, 6]
+  window_size: 16
+  inner_rank: 64
+  num_tokens: 128
+  convffn_kernel_size: 5
+  mlp_ratio: 2.
+  upsampler: "pixelshuffle"
+  resi_connection: "1conv"
+
+path:
+  pretrain_network_g: ""
+  strict_load_g: true
+
+val:
+  save_img: true
+  suffix: "x4"

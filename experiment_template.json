@@ -1,0 +1,22 @@
+{
+  "data_input": "data/val_test.json",
+  "output_path": "output/exp_all_checkpoints",
+  "eval_env": "eval",
+  "viz_env": "eval",
+  "setting": [
+    {
+      "test_name": "hat_default",
+      "model": "hat",
+      "weight": "hat_default",
+      "opt": "scripts/options/hat_default.yml",
+      "env": "sr"
+    },
+    {
+      "test_name": "dat_default",
+      "model": "dat",
+      "weight": "dat_default",
+      "opt": "scripts/options/dat_default.yml",
+      "env": "dat"
+    }
+  ]
+}

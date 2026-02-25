@@ -8,8 +8,13 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any, Dict
 
-from utils import make_lr_stage_from_json
+SR_DIR = Path(__file__).resolve().parents[1]
+if str(SR_DIR) not in sys.path:
+    sys.path.insert(0, str(SR_DIR))
+
+from utils.utils_symlink import make_lr_stage_from_json
 
 
 def _env_int(name: str, default: int) -> int:
@@ -20,6 +25,47 @@ def _env_int(name: str, default: int) -> int:
         return int(v)
     except ValueError:
         raise SystemExit(f"[ERROR] Invalid ${name}={v!r}: expected integer")
+
+
+def _cli_has(flag: str) -> bool:
+    return flag in sys.argv[1:]
+
+
+def _as_int(v: Any, *, what: str) -> int:
+    try:
+        return int(v)
+    except Exception as ex:
+        raise SystemExit(f"[ERROR] {what} must be an integer. Got: {v!r}") from ex
+
+
+def _as_bool(v: Any, *, what: str) -> bool:
+    if isinstance(v, bool):
+        return v
+    s = str(v).strip().lower()
+    if s in {"1", "true", "yes", "y", "on"}:
+        return True
+    if s in {"0", "false", "no", "n", "off"}:
+        return False
+    raise SystemExit(f"[ERROR] {what} must be a boolean. Got: {v!r}")
+
+
+def _load_opt_overrides(opt_path_raw: str) -> Dict[str, Any]:
+    opt_path_raw = str(opt_path_raw).strip()
+    if not opt_path_raw:
+        return {}
+    opt_path = Path(opt_path_raw).expanduser().resolve()
+    if not opt_path.is_file():
+        raise SystemExit(f"[ERROR] opt not found: {opt_path}")
+    try:
+        import yaml
+    except Exception as ex:
+        raise SystemExit("[ERROR] PyYAML is required to use --opt in 02_run_swin2sr_x4.py") from ex
+    data = yaml.safe_load(opt_path.read_text(encoding="utf-8"))
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise SystemExit(f"[ERROR] opt must be a YAML mapping: {opt_path}")
+    return data
 
 
 def main():
@@ -35,6 +81,7 @@ def main():
     )
     ap.add_argument("--json", default=default_val_json, help="Path to val_fixed.json (only 'lr' is used)")
     ap.add_argument("--repo_dir", default=default_repo_dir, help="Path to Swin2SR repo")
+    ap.add_argument("--opt", default=os.environ.get("OPT", ""), help="YAML with Swin2SR args (optional).")
     ap.add_argument(
         "--stage_root",
         default=os.environ.get("STAGE_ROOT", "/tmp/sr_stage"),
@@ -63,10 +110,31 @@ def main():
     ap.add_argument(
         "--meta_dir",
         default=os.environ.get("META_DIR", os.environ.get("PATH_DIR", "")),
-        help="If set, write <meta_dir>/result.json with [{'res':..., 'hr':...}, ...].",
+        help=(
+            "If set, write <meta_dir>/result.json "
+            "with {'items':[{'res':..., 'hr':...}, ...], 'timing':{...}}."
+        ),
     )
     ap.add_argument("--gpu", default="", help="CUDA_VISIBLE_DEVICES, e.g. '2' or '0,1'. Empty = do not set.")
     args = ap.parse_args()
+
+    opt_cfg = _load_opt_overrides(args.opt)
+    if not _cli_has("--task") and "task" in opt_cfg and str(opt_cfg.get("task", "")).strip():
+        args.task = str(opt_cfg["task"]).strip()
+    if not _cli_has("--scale") and "scale" in opt_cfg:
+        args.scale = _as_int(opt_cfg["scale"], what="opt.scale")
+    if not _cli_has("--training_patch_size") and "training_patch_size" in opt_cfg:
+        args.training_patch_size = _as_int(opt_cfg["training_patch_size"], what="opt.training_patch_size")
+    if not _cli_has("--model_path") and "model_path" in opt_cfg and str(opt_cfg.get("model_path", "")).strip():
+        args.model_path = str(opt_cfg["model_path"]).strip()
+    if not _cli_has("--tile") and "tile" in opt_cfg:
+        args.tile = _as_int(opt_cfg["tile"], what="opt.tile")
+    if not _cli_has("--tile_overlap") and "tile_overlap" in opt_cfg:
+        args.tile_overlap = _as_int(opt_cfg["tile_overlap"], what="opt.tile_overlap")
+    if not _cli_has("--jpeg") and "jpeg" in opt_cfg:
+        args.jpeg = _as_int(opt_cfg["jpeg"], what="opt.jpeg")
+    if not _cli_has("--large_model") and "large_model" in opt_cfg:
+        args.large_model = _as_bool(opt_cfg["large_model"], what="opt.large_model")
 
     repo_dir = Path(args.repo_dir).resolve()
 
@@ -107,12 +175,21 @@ def main():
     meta_dir = str(Path(meta_dir_raw).expanduser().resolve()) if meta_dir_raw else ""
     if not meta_dir and out_dir:
         meta_dir = out_dir
+    timing_json_path = (Path(meta_dir).resolve() / "inference_timing.json") if meta_dir else None
 
     run_env = os.environ.copy()
     if args.gpu.strip():
         run_env["CUDA_VISIBLE_DEVICES"] = args.gpu.strip()
+    if timing_json_path is not None:
+        run_env["SR_TIMING_OUT"] = str(timing_json_path)
+        try:
+            timing_json_path.unlink()
+        except FileNotFoundError:
+            pass
 
     print("[INFO] repo_dir :", repo_dir)
+    if str(args.opt).strip():
+        print("[INFO] opt      :", Path(args.opt).expanduser().resolve())
     print("[INFO] stage_lr :", sp.lr_dir)
     if out_dir:
         print("[INFO] out_dir  :", out_dir)
@@ -189,7 +266,13 @@ def main():
             meta_dir_p = Path(meta_dir).resolve()
             meta_dir_p.mkdir(parents=True, exist_ok=True)
             out_json = meta_dir_p / "result.json"
-            out_json.write_text(json.dumps(items, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            payload = {"items": items}
+            if timing_json_path is not None and timing_json_path.is_file():
+                try:
+                    payload["timing"] = json.loads(timing_json_path.read_text(encoding="utf-8"))
+                except Exception as ex:
+                    print(f"[WARN] Failed to read timing JSON: {timing_json_path} ({ex})")
+            out_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             print(f"[INFO] wrote: {out_json}")
 
     finally:

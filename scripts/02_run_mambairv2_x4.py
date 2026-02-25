@@ -9,7 +9,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from utils import make_lr_stage_from_json
+SR_DIR = Path(__file__).resolve().parents[1]
+if str(SR_DIR) not in sys.path:
+    sys.path.insert(0, str(SR_DIR))
+
+from utils.utils_symlink import make_lr_stage_from_json
 
 
 def main() -> None:
@@ -37,7 +41,10 @@ def main() -> None:
     ap.add_argument(
         "--meta_dir",
         default=os.environ.get("META_DIR", os.environ.get("PATH_DIR", "")),
-        help="If set, write <meta_dir>/result.json with [{'res':..., 'hr':...}, ...].",
+        help=(
+            "If set, write <meta_dir>/result.json "
+            "with {'items':[{'res':..., 'hr':...}, ...], 'timing':{...}}."
+        ),
     )
     ap.add_argument("--gpu", default="", help="CUDA_VISIBLE_DEVICES, e.g. '2' or '0,1'. Empty = do not set.")
     args = ap.parse_args()
@@ -62,6 +69,7 @@ def main() -> None:
     meta_dir = str(Path(meta_dir_raw).expanduser().resolve()) if meta_dir_raw else ""
     if not meta_dir and out_dir:
         meta_dir = out_dir
+    timing_json_path = (Path(meta_dir).resolve() / "inference_timing.json") if meta_dir else None
 
     sp = make_lr_stage_from_json(
         val_json=Path(args.json),
@@ -84,6 +92,12 @@ def main() -> None:
     run_env["PYTHONPATH"] = f"{repo_dir}{os.pathsep}{run_env.get('PYTHONPATH', '')}".rstrip(os.pathsep)
     if args.gpu.strip():
         run_env["CUDA_VISIBLE_DEVICES"] = args.gpu.strip()
+    if timing_json_path is not None:
+        run_env["SR_TIMING_OUT"] = str(timing_json_path)
+        try:
+            timing_json_path.unlink()
+        except FileNotFoundError:
+            pass
 
     print("[INFO] repo_dir :", repo_dir)
     print("[INFO] stage_lr :", sp.lr_dir)
@@ -154,7 +168,13 @@ def main() -> None:
             meta_dir_p = Path(meta_dir).resolve()
             meta_dir_p.mkdir(parents=True, exist_ok=True)
             out_json = meta_dir_p / "result.json"
-            out_json.write_text(json.dumps(items, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            payload = {"items": items}
+            if timing_json_path is not None and timing_json_path.is_file():
+                try:
+                    payload["timing"] = json.loads(timing_json_path.read_text(encoding="utf-8"))
+                except Exception as ex:
+                    print(f"[WARN] Failed to read timing JSON: {timing_json_path} ({ex})")
+            out_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             print(f"[INFO] wrote: {out_json}")
     finally:
         if not args.keep_stage:

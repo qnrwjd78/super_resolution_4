@@ -1,0 +1,46 @@
+# HAT x4 inference (template for scripts/02_run_hat_x4.py)
+name: HAT_SRx4_ImageNet-LR
+model_type: HATModel
+scale: 4
+num_gpu: 1
+manual_seed: 0
+
+# NOTE: scripts/02_run_hat_x4.py will remove this `tile` section when --tile_size=0.
+tile:
+  tile_size: 512
+  tile_pad: 32
+
+datasets:
+  test_1:
+    name: DIV2K_val
+    type: SingleImageDataset
+    dataroot_lq: ""
+    io_backend:
+      type: disk
+
+network_g:
+  type: HAT
+  upscale: 4
+  in_chans: 3
+  img_size: 64
+  window_size: 16
+  compress_ratio: 3
+  squeeze_factor: 30
+  conv_scale: 0.01
+  overlap_ratio: 0.5
+  img_range: 1.
+  depths: [6, 6, 6, 6, 6, 6]
+  embed_dim: 180
+  num_heads: [6, 6, 6, 6, 6, 6]
+  mlp_ratio: 2
+  upsampler: "pixelshuffle"
+  resi_connection: "1conv"
+
+path:
+  pretrain_network_g: ""
+  strict_load_g: true
+  param_key_g: "params_ema"
+
+val:
+  save_img: true
+  suffix: "x4"
