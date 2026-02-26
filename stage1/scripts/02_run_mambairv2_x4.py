@@ -19,7 +19,8 @@ from utils.utils_symlink import make_lr_stage_from_json
 def main() -> None:
     script_dir = Path(__file__).resolve().parent
     sr_dir = (script_dir / "..").resolve()
-    workspace_dir = (sr_dir / "../..").resolve()
+    project_dir = (sr_dir / "..").resolve()
+    workspace_dir = (project_dir / "../..").resolve()
 
     default_val_json = os.environ.get("VAL_JSON", str(workspace_dir / "data" / "val_fixed.json"))
     default_repo_dir = str((sr_dir / "repos" / "MambaIR").resolve())

@@ -1,6 +1,6 @@
-# DAT x4 inference (template for scripts/02_run_dat_x4.py)
-name: DAT_x4
-model_type: DATModel
+# MambaIRv2 x4 inference (template for stage1/scripts/02_run_mambairv2_x4.py)
+name: MambaIRv2_x4
+model_type: MambaIRv2Model
 scale: 4
 num_gpu: 1
 manual_seed: 10
@@ -14,16 +14,21 @@ datasets:
       type: disk
 
 network_g:
-  type: DAT
+  type: MambaIRv2
   upscale: 4
   in_chans: 3
   img_size: 64
   img_range: 1.
-  split_size: [8, 32]
-  depth: [6, 6, 6, 6, 6, 6]
-  embed_dim: 180
+  embed_dim: 174
+  d_state: 16
+  depths: [6, 6, 6, 6, 6, 6]
   num_heads: [6, 6, 6, 6, 6, 6]
-  expansion_factor: 4
+  window_size: 16
+  inner_rank: 64
+  num_tokens: 128
+  convffn_kernel_size: 5
+  mlp_ratio: 2.
+  upsampler: "pixelshuffle"
   resi_connection: "1conv"
 
 path:
@@ -33,4 +38,3 @@ path:
 val:
   save_img: true
   suffix: "x4"
-  use_chop: false

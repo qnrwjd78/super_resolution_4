@@ -96,6 +96,34 @@ RUN conda run -n eval pip install \
     pillow opencv-python scikit-image scipy \
     timm transformers huggingface-hub einops tqdm requests \
     pyiqa
+
+# =========================
+# Env: flux2 (FLUX.2 inference)
+# =========================
+RUN conda create -n flux2 -y --override-channels -c conda-forge python=3.12
+
+RUN conda run -n flux2 python -m pip install -U \
+    "pip<25" \
+    setuptools \
+    wheel
+
+# Extra deps commonly needed by transformers text encoders
+RUN conda run -n flux2 pip install \
+    pillow \
+    sentencepiece \
+    protobuf
+
+WORKDIR /workspace/flux2
+COPY flux2/pyproject.toml flux2/README.md flux2/LICENSE.md ./
+COPY flux2/src ./src
+COPY flux2/scripts ./scripts
+
+# Install FLUX.2 (brings torch/transformers pins from pyproject.toml)
+RUN conda run -n flux2 pip install -e . \
+    --extra-index-url https://download.pytorch.org/whl/cu129 \
+    --no-cache-dir
+
+WORKDIR /workspace
 # =========================
 # Convenience wrappers
 # =========================
@@ -119,5 +147,12 @@ RUN printf '%s\n' \
 'source /opt/conda/etc/profile.d/conda.sh' \
 'conda run -n eval --no-capture-output "$@"' \
 > /usr/local/bin/eval && chmod +x /usr/local/bin/eval
+
+RUN printf '%s\n' \
+'#!/usr/bin/env bash' \
+'set -e' \
+'source /opt/conda/etc/profile.d/conda.sh' \
+'conda run -n flux2 --no-capture-output "$@"' \
+> /usr/local/bin/flux2 && chmod +x /usr/local/bin/flux2
 
 CMD ["bash"]

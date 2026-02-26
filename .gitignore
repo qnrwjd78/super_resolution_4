@@ -5,4 +5,5 @@
 output/
 
 # 모델 체크포인트
-weights/
+stage1/weights/
+stage2/weights/

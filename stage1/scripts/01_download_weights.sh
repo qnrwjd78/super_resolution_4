@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Download pretrained weights into super_resolution_4/weight/<model>/...
+# Download pretrained weights into super_resolution_4/stage1/weights/<model>/...
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SR_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"          # .../super_resolution_4

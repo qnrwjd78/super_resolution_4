@@ -159,8 +159,10 @@ def _load_registry(reg_path: Path, sr_dir: Path) -> Tuple[Dict[str, Path], Dict[
 
 def main() -> None:
     sr_dir = Path(__file__).resolve().parent
-    scripts_dir = (sr_dir / "scripts").resolve()
-    workspace_dir = (sr_dir / "../..").resolve()
+    stage1_dir = sr_dir.resolve()
+    scripts_dir = (stage1_dir / "scripts").resolve()
+    eval_dir = (stage1_dir.parent / "eval").resolve()
+    workspace_dir = (sr_dir / "../../..").resolve()
 
     ap = argparse.ArgumentParser(description="Run multiple SR tests from experiment JSON + model registry JSON.")
     ap.add_argument("--exp", required=True, help="Path to experiment JSON (data_input/output_path/setting).")
@@ -181,8 +183,8 @@ def main() -> None:
     ap.add_argument("--stage_root", default="", help="Override --stage_root for each 02_run_*.py wrapper (optional).")
     ap.add_argument("--keep_stage", action="store_true", help="Pass --keep_stage to each 02_run_*.py wrapper.")
 
-    ap.add_argument("--skip_eval", action="store_true", help="Skip running scripts/03_evaluation.py")
-    ap.add_argument("--skip_viz", action="store_true", help="Skip running scripts/04_visualization.py")
+    ap.add_argument("--skip_eval", action="store_true", help="Skip running eval/03_evaluation.py")
+    ap.add_argument("--skip_viz", action="store_true", help="Skip running eval/04_visualization.py")
     ap.add_argument("--eval_device", default="auto", choices=["auto", "cuda", "cpu"])
     ap.add_argument("--fr_resize", default="to_ref", choices=["to_ref", "none"])
     ap.add_argument("--viz_idx", type=int, nargs="+", default=None, help="Indices to render row images in visualization.")
@@ -229,8 +231,8 @@ def main() -> None:
     reg_path = Path(args.models).expanduser().resolve()
     models, weights = _load_registry(reg_path, sr_dir)
 
-    eval_py = (scripts_dir / "03_evaluation.py").resolve()
-    viz_py = (scripts_dir / "04_visualization.py").resolve()
+    eval_py = (eval_dir / "03_evaluation.py").resolve()
+    viz_py = (eval_dir / "04_visualization.py").resolve()
     if not eval_py.is_file():
         raise SystemExit(f"[ERROR] missing: {eval_py}")
     if not viz_py.is_file():

@@ -8,87 +8,87 @@
   },
   "weight": {
     "hat_default": {
-      "weight_path": "weight/hat/HAT_SRx4_ImageNet-pretrain.pth",
+      "weight_path": "weights/hat/HAT_SRx4_ImageNet-pretrain.pth",
       "opt_path": "scripts/options/hat_default.yml"
     },
     "hat_srx4": {
-      "weight_path": "weight/hat/HAT_SRx4.pth",
+      "weight_path": "weights/hat/HAT_SRx4.pth",
       "opt_path": "scripts/options/hat_srx4.yml"
     },
     "hat_l_srx4_imagenet_pretrain": {
-      "weight_path": "weight/hat/HAT-L_SRx4_ImageNet-pretrain.pth",
+      "weight_path": "weights/hat/HAT-L_SRx4_ImageNet-pretrain.pth",
       "opt_path": "scripts/options/hat_l_srx4_imagenet_pretrain.yml"
     },
     "hat_s_srx4": {
-      "weight_path": "weight/hat/HAT-S_SRx4.pth",
+      "weight_path": "weights/hat/HAT-S_SRx4.pth",
       "opt_path": "scripts/options/hat_s_srx4.yml"
     },
     "hat_real_hat_gan_srx4": {
-      "weight_path": "weight/hat/Real_HAT_GAN_SRx4.pth",
+      "weight_path": "weights/hat/Real_HAT_GAN_SRx4.pth",
       "opt_path": "scripts/options/hat_real_hat_gan_srx4.yml"
     },
     "hat_real_hat_gan_srx4_sharper": {
-      "weight_path": "weight/hat/Real_HAT_GAN_SRx4_sharper.pth",
+      "weight_path": "weights/hat/Real_HAT_GAN_SRx4_sharper.pth",
       "opt_path": "scripts/options/hat_real_hat_gan_srx4_sharper.yml"
     },
 
     "mambair_v1_srx4": {
-      "weight_path": "weight/mambair/MambaIR_SRx4.pth",
+      "weight_path": "weights/mambair/MambaIR_SRx4.pth",
       "opt_path": "scripts/options/mambair_v1_srx4.yml"
     },
     "mambairv2_default": {
-      "weight_path": "weight/mambair/MambaIRv2_SRx4.pth",
+      "weight_path": "weights/mambair/MambaIRv2_SRx4.pth",
       "opt_path": "scripts/options/mambairv2_default.yml"
     },
 
     "swinir_default": {
-      "weight_path": "weight/swinir/001_classicalSR_DIV2K_s48w8_SwinIR-M_x4.pth",
+      "weight_path": "weights/swinir/001_classicalSR_DIV2K_s48w8_SwinIR-M_x4.pth",
       "opt_path": "scripts/options/swinir_default.yml"
     },
     "swinir_001_classicalSR_DF2K_s64w8_SwinIR-M_x4": {
-      "weight_path": "weight/swinir/001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth",
+      "weight_path": "weights/swinir/001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth",
       "opt_path": "scripts/options/swinir_001_classicalSR_DF2K_s64w8_SwinIR-M_x4.yml"
     },
     "swinir_002_lightweightSR_DIV2K_s64w8_SwinIR-S_x4": {
-      "weight_path": "weight/swinir/002_lightweightSR_DIV2K_s64w8_SwinIR-S_x4.pth",
+      "weight_path": "weights/swinir/002_lightweightSR_DIV2K_s64w8_SwinIR-S_x4.pth",
       "opt_path": "scripts/options/swinir_002_lightweightSR_DIV2K_s64w8_SwinIR-S_x4.yml"
     },
     "swinir_003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN": {
-      "weight_path": "weight/swinir/003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.pth",
+      "weight_path": "weights/swinir/003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.pth",
       "opt_path": "scripts/options/swinir_003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.yml"
     },
     "swinir_003_realSR_BSRGAN_DFOWMFC_s64w8_SwinIR-L_x4_GAN": {
-      "weight_path": "weight/swinir/003_realSR_BSRGAN_DFOWMFC_s64w8_SwinIR-L_x4_GAN.pth",
+      "weight_path": "weights/swinir/003_realSR_BSRGAN_DFOWMFC_s64w8_SwinIR-L_x4_GAN.pth",
       "opt_path": "scripts/options/swinir_003_realSR_BSRGAN_DFOWMFC_s64w8_SwinIR-L_x4_GAN.yml"
     },
 
     "swin2sr_default": {
-      "weight_path": "weight/swin2sr/Swin2SR_ClassicalSR_X4_64.pth",
+      "weight_path": "weights/swin2sr/Swin2SR_ClassicalSR_X4_64.pth",
       "opt_path": "scripts/options/swin2sr_default.yml"
     },
     "swin2sr_realworldsr_x4_64_bsrgan_psnr": {
-      "weight_path": "weight/swin2sr/Swin2SR_RealworldSR_X4_64_BSRGAN_PSNR.pth",
+      "weight_path": "weights/swin2sr/Swin2SR_RealworldSR_X4_64_BSRGAN_PSNR.pth",
       "opt_path": "scripts/options/swin2sr_realworldsr_x4_64_bsrgan_psnr.yml"
     },
     "swin2sr_compressedsr_x4_48": {
-      "weight_path": "weight/swin2sr/Swin2SR_CompressedSR_X4_48.pth",
+      "weight_path": "weights/swin2sr/Swin2SR_CompressedSR_X4_48.pth",
       "opt_path": "scripts/options/swin2sr_compressedsr_x4_48.yml"
     },
 
     "dat_default": {
-      "weight_path": "weight/dat/DAT_x4.pth",
+      "weight_path": "weights/dat/DAT_x4.pth",
       "opt_path": "scripts/options/dat_default.yml"
     },
     "dat_s_x4": {
-      "weight_path": "weight/dat/DAT_S_x4.pth",
+      "weight_path": "weights/dat/DAT_S_x4.pth",
       "opt_path": "scripts/options/dat_s_x4.yml"
     },
     "dat_2_x4": {
-      "weight_path": "weight/dat/DAT_2_x4.pth",
+      "weight_path": "weights/dat/DAT_2_x4.pth",
       "opt_path": "scripts/options/dat_2_x4.yml"
     },
     "dat_light_x4": {
-      "weight_path": "weight/dat/DAT_light_x4.pth",
+      "weight_path": "weights/dat/DAT_light_x4.pth",
       "opt_path": "scripts/options/dat_light_x4.yml"
     }
   }

@@ -58,7 +58,8 @@ def _load_opt_overrides(opt_path_raw: str) -> Dict[str, Any]:
 def main():
     script_dir = Path(__file__).resolve().parent
     sr_dir = (script_dir / "..").resolve()
-    workspace_dir = (sr_dir / "../..").resolve()
+    project_dir = (sr_dir / "..").resolve()
+    workspace_dir = (project_dir / "../..").resolve()
 
     default_val_json = os.environ.get("VAL_JSON", str(workspace_dir / "data" / "val_fixed.json"))
     default_repo_dir = str((sr_dir / "repos" / "SwinIR").resolve())

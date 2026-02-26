@@ -4,7 +4,7 @@ set -euo pipefail
 # Example: run 03_evaluation.py three times (edit JSON paths as needed).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SR_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 EVAL_PY="$SCRIPT_DIR/03_evaluation.py"
 
 # Input JSONs (our format: [{"res": "...", "hr": "..."}, ...])
@@ -16,7 +16,7 @@ J4="$INPUT_DIR/result_swin2sr.json"
 J5="$INPUT_DIR/result_hat.json"
 
 # Where to write evaluation outputs
-OUT_DIR="${OUT_DIR:-$SR_DIR/output/eval}"
+OUT_DIR="${OUT_DIR:-$PROJECT_DIR/output/eval}"
 
 # Common options
 DEVICE="${DEVICE:-auto}"       # auto|cuda|cpu

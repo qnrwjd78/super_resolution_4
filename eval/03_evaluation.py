@@ -3,9 +3,10 @@ import json
 import sys
 from pathlib import Path
 
-SR_DIR = Path(__file__).resolve().parents[1]
-if str(SR_DIR) not in sys.path:
-    sys.path.insert(0, str(SR_DIR))
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+STAGE1_DIR = PROJECT_DIR / "stage1"
+if str(STAGE1_DIR) not in sys.path:
+    sys.path.insert(0, str(STAGE1_DIR))
 
 import torch
 

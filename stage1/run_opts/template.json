@@ -8,14 +8,14 @@
       "test_name": "hat_default",
       "model": "hat",
       "weight": "hat_default",
-      "opt": "scripts/options/hat_default.yml",
+      "opt": "stage1/scripts/options/hat_default.yml",
       "env": "sr"
     },
     {
       "test_name": "dat_default",
       "model": "dat",
       "weight": "dat_default",
-      "opt": "scripts/options/dat_default.yml",
+      "opt": "stage1/scripts/options/dat_default.yml",
       "env": "dat"
     }
   ]

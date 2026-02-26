@@ -1,11 +1,11 @@
-# HAT x4 inference (template for scripts/02_run_hat_x4.py)
+# HAT x4 inference (template for stage1/scripts/02_run_hat_x4.py)
 name: HAT_SRx4_ImageNet-LR
 model_type: HATModel
 scale: 4
 num_gpu: 1
 manual_seed: 0
 
-# NOTE: scripts/02_run_hat_x4.py will remove this `tile` section when --tile_size=0.
+# NOTE: stage1/scripts/02_run_hat_x4.py will remove this `tile` section when --tile_size=0.
 tile:
   tile_size: 512
   tile_pad: 32

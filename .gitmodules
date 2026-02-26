@@ -1,15 +1,18 @@
-[submodule "repos/HAT"]
-	path = repos/HAT
+[submodule "stage1/repos/HAT"]
+	path = stage1/repos/HAT
 	url = https://github.com/XPixelGroup/HAT.git
-[submodule "repos/MambaIR"]
-	path = repos/MambaIR
+[submodule "stage1/repos/MambaIR"]
+	path = stage1/repos/MambaIR
 	url = https://github.com/csguoh/MambaIR.git
-[submodule "repos/SwinIR"]
-	path = repos/SwinIR
+[submodule "stage1/repos/SwinIR"]
+	path = stage1/repos/SwinIR
 	url = https://github.com/JingyunLiang/SwinIR.git
-[submodule "repos/swin2sr"]
-	path = repos/swin2sr
+[submodule "stage1/repos/swin2sr"]
+	path = stage1/repos/swin2sr
 	url = https://github.com/mv-lab/swin2sr.git
-[submodule "repos/DAT"]
-	path = repos/DAT
+[submodule "stage1/repos/DAT"]
+	path = stage1/repos/DAT
 	url = https://github.com/zhengchen1999/DAT.git
+[submodule "stage2/repos/flux2"]
+	path = stage2/repos/flux2
+	url = https://github.com/black-forest-labs/flux2.git
