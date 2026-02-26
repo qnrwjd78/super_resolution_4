@@ -1,3 +1,5 @@
+import argparse
+import sys
 from pathlib import Path
 
 from PIL import Image
@@ -23,3 +25,22 @@ def crop_left_square(input_image_path: str, n: int, output_image_path: str) -> N
         output_path.parent.mkdir(parents=True, exist_ok=True)
         cropped.save(output_path)
 
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Crop image to a top-left n x n square. If n is larger than the shorter side, use the shorter side."
+    )
+    parser.add_argument("--input-image", required=True, help="Input image path")
+    parser.add_argument("--n", required=True, type=int, help="Target square size")
+    parser.add_argument("--output-image", required=True, help="Output image path")
+
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(2)
+
+    args = parser.parse_args()
+    crop_left_square(args.input_image, args.n, args.output_image)
+
+
+if __name__ == "__main__":
+    main()
