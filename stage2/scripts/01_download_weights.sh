@@ -15,7 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STAGE2_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 WEIGHT_DIR="${WEIGHT_DIR:-$STAGE2_DIR/weights}"
-MODELS="${MODELS:-flux.2-klein-9b}"
+MODELS="${MODELS:-flux.2-klein-base-9b}"
 INCLUDE_AE="${INCLUDE_AE:-1}"
 # FLUX.2 autoencoder is published at FLUX.2-dev repo.
 AE_REPO_ID="${AE_REPO_ID:-black-forest-labs/FLUX.2-dev}"
