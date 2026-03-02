@@ -1,0 +1,21 @@
+{
+  "model_path": "/sr/code/sr/stage2/weights/flux2-klein-base-9b",
+  "input_json": "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/result.json",
+  "output_dir": "/sr/code/sr/stage2/outputs/test_5_l",
+  "output_json": "/sr/code/sr/stage2/outputs/test_5_l.json",
+  "prompts_json": "/sr/code/sr/stage2/prompts.json",
+  "prompt_name": "test_5",
+  "patch_size": 1024,
+  "guidance_scale": 4.0,
+  "num_inference_steps": 50,
+  "dtype": "bf16",
+  "device": "cuda",
+  "seed": 0,
+  "cpu_offload": true,
+  "test_name": "test_5_l",
+  "evaluation_output_dir": "/sr/code/sr/stage2/outputs/evaluation",
+  "evaluation_device": "auto",
+  "evaluation_gpu_devices": "3",
+  "evaluation_fr_resize": "to_ref",
+  "gpu_devices": "3"
+}

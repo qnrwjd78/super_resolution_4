@@ -6,7 +6,7 @@ import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 DEFAULT_METRICS = ["niqe", "maniqa", "musiq", "clipiqa", "lpips", "dists", "psnr", "ssim"]
 DEFAULT_LOWER_BETTER = {"niqe", "lpips", "dists"}
@@ -15,25 +15,6 @@ METRIC_GROUPS = [
     ("Full-reference", ["lpips", "dists"]),
     ("Restoration", ["psnr", "ssim"]),
 ]
-MODEL_PREFIX_DISPLAY = {
-    "dat": "DAT",
-    "hat": "HAT",
-    "swinir": "SwinIR",
-    "swin2sr": "Swin2SR",
-    "mambair": "MambaIR",
-    "mambairv2": "MambaIRv2",
-}
-MODEL_TOKEN_DISPLAY = {
-    "default": "Default",
-    "light": "Light",
-    "real": "Real",
-    "sharper": "Sharper",
-    "pretrain": "Pretrain",
-    "hat": "HAT",
-    "dat": "DAT",
-    "l": "L",
-    "s": "S",
-}
 
 
 @dataclass
@@ -63,7 +44,7 @@ def _as_float(v: object) -> Optional[float]:
 
 def _load_rows(input_dir: Path) -> List[EvalRow]:
     rows: List[EvalRow] = []
-    for p in sorted(input_dir.glob("*.eval.json")):
+    for p in sorted(input_dir.glob("*.json")):
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
         except Exception:
@@ -80,6 +61,64 @@ def _load_rows(input_dir: Path) -> List[EvalRow]:
                 parsed[str(k)] = x
         rows.append(EvalRow(name=_infer_name(p), mean=parsed))
     return rows
+
+
+def _load_config(path: Optional[str]) -> Dict[str, Any]:
+    if not path:
+        return {}
+
+    config_path = Path(path).expanduser().resolve()
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config JSON not found: {config_path}")
+
+    data = json.loads(config_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("Config JSON must be a JSON object.")
+    return data
+
+
+def _get_str_list(config: Dict[str, Any], key: str, default: Sequence[str]) -> List[str]:
+    value = config.get(key)
+    if value is None:
+        return list(default)
+    if not isinstance(value, list):
+        raise ValueError(f"Config field `{key}` must be a JSON array.")
+    return [str(v) for v in value]
+
+
+def _get_optional_str(config: Dict[str, Any], key: str, default: Optional[str] = None) -> Optional[str]:
+    value = config.get(key)
+    if value is None:
+        return default
+    text = str(value).strip()
+    return text or default
+
+
+def _get_str(config: Dict[str, Any], key: str, default: str) -> str:
+    value = _get_optional_str(config, key, default)
+    if value is None:
+        return default
+    return value
+
+
+def _get_int(config: Dict[str, Any], key: str, default: int) -> int:
+    value = config.get(key)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except Exception as exc:
+        raise ValueError(f"Config field `{key}` must be an integer.") from exc
+
+
+def _get_float(config: Dict[str, Any], key: str, default: float) -> float:
+    value = config.get(key)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except Exception as exc:
+        raise ValueError(f"Config field `{key}` must be a float.") from exc
 
 
 def _present_metrics(rows: Sequence[EvalRow], metrics: Sequence[str]) -> List[str]:
@@ -154,11 +193,11 @@ def _metric_groups_in_order(metrics: Sequence[str]) -> List[Tuple[str, List[str]
 
 
 def _family_key(model_name: str) -> str:
-    return model_name.split("_", 1)[0].lower()
+    return model_name.split("_", 1)[0]
 
 
 def _family_display(key: str) -> str:
-    return MODEL_PREFIX_DISPLAY.get(key, key.upper())
+    return key
 
 
 def _group_rows_by_family(rows: Sequence[EvalRow]) -> List[Tuple[str, List[EvalRow]]]:
@@ -173,31 +212,7 @@ def _group_rows_by_family(rows: Sequence[EvalRow]) -> List[Tuple[str, List[EvalR
 
 
 def _pretty_model_name(model_name: str) -> str:
-    toks = model_name.split("_")
-    if not toks:
-        return model_name
-
-    out: List[str] = []
-    first = toks[0].lower()
-    out.append(MODEL_PREFIX_DISPLAY.get(first, toks[0].upper()))
-
-    for t in toks[1:]:
-        tl = t.lower()
-        if tl == "srx4":
-            out.append("SRx4")
-        elif tl == "x4":
-            out.append("x4")
-        elif tl == "gan":
-            out.append("GAN")
-        elif tl == "imagenet":
-            out.append("ImageNet")
-        elif tl in MODEL_TOKEN_DISPLAY:
-            out.append(MODEL_TOKEN_DISPLAY[tl])
-        elif t.isdigit():
-            out.append(t)
-        else:
-            out.append(t)
-    return " ".join(out)
+    return model_name
 
 
 def _format_value(v: Optional[float], mark: str, digits: int) -> str:
@@ -323,41 +338,46 @@ def render_latex_table(
 
 def main() -> None:
     ap = argparse.ArgumentParser(
-        description="Build a LaTeX table from *.eval.json mean metrics (best/second-best highlighted)."
+        description="Build a LaTeX table from evaluation JSON files (top-level `mean` required)."
     )
-    ap.add_argument("input", type=str, help="Input directory containing *.eval.json files.")
+    ap.add_argument("input", type=str, help="Input directory containing evaluation JSON files.")
+    ap.add_argument(
+        "--config_json",
+        type=str,
+        default=None,
+        help="Optional JSON file describing LaTeX export options.",
+    )
     ap.add_argument(
         "-o",
         "--out",
         type=str,
         default=None,
-        help="Output .tex path. If omitted, print to stdout.",
+        help="Output .tex path. If omitted, use `out` from config_json or print to stdout.",
     )
     ap.add_argument(
         "--metrics",
         nargs="+",
-        default=DEFAULT_METRICS,
-        help=f"Metric order for table columns. Default: {' '.join(DEFAULT_METRICS)}",
+        default=None,
+        help="Metric order for table columns. Overrides config_json when provided.",
     )
     ap.add_argument(
         "--lower_better",
         nargs="+",
-        default=sorted(DEFAULT_LOWER_BETTER),
-        help="Metrics where lower value is better.",
+        default=None,
+        help="Metrics where lower value is better. Overrides config_json when provided.",
     )
-    ap.add_argument("--digits", type=int, default=4, help="Number of decimal places.")
+    ap.add_argument("--digits", type=int, default=None, help="Number of decimal places. Overrides config_json.")
     ap.add_argument(
         "--caption",
         type=str,
-        default="Mean evaluation metrics across checkpoints.",
-        help="LaTeX table caption.",
+        default=None,
+        help="LaTeX table caption. Overrides config_json.",
     )
-    ap.add_argument("--label", type=str, default="tab:mean-metrics", help="LaTeX table label.")
+    ap.add_argument("--label", type=str, default=None, help="LaTeX table label. Overrides config_json.")
     ap.add_argument(
         "--style",
         type=str,
-        default="booktabs",
-        choices=["booktabs", "grid", "boxed"],
+        default=None,
         help=(
             "Table style. "
             "booktabs: paper default; "
@@ -368,10 +388,12 @@ def main() -> None:
     ap.add_argument(
         "--eps",
         type=float,
-        default=1e-12,
-        help="Tie tolerance when deciding best/second-best values.",
+        default=None,
+        help="Tie tolerance when deciding best/second-best values. Overrides config_json.",
     )
     args = ap.parse_args()
+
+    config = _load_config(args.config_json)
 
     input_dir = Path(args.input).resolve()
     if not input_dir.is_dir():
@@ -379,25 +401,45 @@ def main() -> None:
 
     rows = _load_rows(input_dir)
     if not rows:
-        raise SystemExit(f"No valid *.eval.json with top-level 'mean' found under: {input_dir}")
+        raise SystemExit(f"No valid evaluation JSON with top-level 'mean' found under: {input_dir}")
 
-    metrics = _present_metrics(rows, args.metrics)
+    metrics = args.metrics if args.metrics is not None else _get_str_list(config, "metrics", DEFAULT_METRICS)
+    lower_better = (
+        args.lower_better
+        if args.lower_better is not None
+        else _get_str_list(config, "lower_better", sorted(DEFAULT_LOWER_BETTER))
+    )
+    digits = args.digits if args.digits is not None else _get_int(config, "digits", 4)
+    caption = (
+        args.caption
+        if args.caption is not None
+        else _get_str(config, "caption", "Mean evaluation metrics across checkpoints.")
+    )
+    label = args.label if args.label is not None else _get_str(config, "label", "tab:mean-metrics")
+    style = args.style if args.style is not None else _get_str(config, "style", "booktabs")
+    eps = args.eps if args.eps is not None else _get_float(config, "eps", 1e-12)
+    out_value = args.out if args.out is not None else _get_optional_str(config, "out")
+
+    if style not in {"booktabs", "grid", "boxed"}:
+        raise SystemExit(f"Invalid style: {style}. Expected one of: booktabs, grid, boxed.")
+
+    metrics = _present_metrics(rows, metrics)
     if not metrics:
         raise SystemExit("No requested metrics are present in loaded eval files.")
 
     tex = render_latex_table(
         rows=rows,
         metrics=metrics,
-        lower_better_metrics=args.lower_better,
-        style=args.style,
-        digits=max(0, int(args.digits)),
-        caption=args.caption,
-        label=args.label,
-        eps=max(0.0, float(args.eps)),
+        lower_better_metrics=lower_better,
+        style=style,
+        digits=max(0, int(digits)),
+        caption=caption,
+        label=label,
+        eps=max(0.0, float(eps)),
     )
 
-    if args.out:
-        out_path = Path(args.out).resolve()
+    if out_value:
+        out_path = Path(out_value).expanduser().resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(tex, encoding="utf-8")
         print(f"Saved: {out_path}")

@@ -1,0 +1,22 @@
+{
+  "data_input": "data/val_DIV2K.json",
+  "output_path": "output/test_checkpoints",
+  "eval_env": "eval",
+  "viz_env": "eval",
+  "setting": [
+    {
+      "test_name": "hat_l_srx4_imagenet_pretrain",
+      "model": "hat",
+      "weight": "hat_l_srx4_imagenet_pretrain",
+      "opt": "scripts/options/hat_l_srx4_imagenet_pretrain.yml",
+      "env": "sr"
+    },
+    {
+      "test_name": "hat_real_hat_gan_srx4_sharper",
+      "model": "hat",
+      "weight": "hat_real_hat_gan_srx4_sharper",
+      "opt": "scripts/options/hat_real_hat_gan_srx4_sharper.yml",
+      "env": "sr"
+    }
+  ]
+}

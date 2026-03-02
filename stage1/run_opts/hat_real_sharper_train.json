@@ -1,0 +1,15 @@
+{
+  "data_input": "data/train_DIV2K.json",
+  "output_path": "data/DIV2K_trainset_w_hat_real_sharper",
+  "eval_env": "eval",
+  "viz_env": "eval",
+  "setting": [
+    {
+      "test_name": "hat_real_hat_gan_srx4_sharper",
+      "model": "hat",
+      "weight": "hat_real_hat_gan_srx4_sharper",
+      "opt": "scripts/options/hat_real_hat_gan_srx4_sharper.yml",
+      "env": "sr"
+    }
+  ]
+}

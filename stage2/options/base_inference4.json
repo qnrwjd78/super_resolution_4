@@ -1,0 +1,16 @@
+{
+  "model_path": "/sr/code/sr/stage2/weights/flux2-klein-base-9b",
+  "input_json": "/sr/data/val_DIV2K.json",
+  "output_dir": "/sr/code/sr/stage2/outputs/photo_real_sr",
+  "output_json": "/sr/code/sr/stage2/outputs/photo_real_sr.json",
+  "prompts_json": "/sr/code/sr/stage2/prompts.json",
+  "prompt_name": "photo_real_sr",
+  "patch_size": 1024,
+  "guidance_scale": 4.0,
+  "num_inference_steps": 50,
+  "dtype": "bf16",
+  "device": "cuda",
+  "seed": 0,
+  "cpu_offload": true,
+  "gpu_devices": "3"
+}

@@ -98,32 +98,42 @@ RUN conda run -n eval pip install \
     pyiqa
 
 # =========================
-# Env: flux2 (FLUX.2 inference)
+# Env: flux2 
 # =========================
-RUN conda create -n flux2 -y --override-channels -c conda-forge python=3.12
+
+RUN conda create -n flux2 -y --override-channels -c conda-forge python=3.10
 
 RUN conda run -n flux2 python -m pip install -U \
     "pip<25" \
-    setuptools \
+    "setuptools<82" \
     wheel
 
-# Extra deps commonly needed by transformers text encoders
+# torch 2.0.1 cu117 (matches CUDA 11.7 base image)
+RUN conda run -n flux2 pip install --index-url https://download.pytorch.org/whl/cu117 \
+    torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
+
+# Flux2 LoRA trainer deps
 RUN conda run -n flux2 pip install \
-    pillow \
+    "numpy<2" \
+    pillow tqdm packaging pyyaml requests \
+    accelerate>=0.31.0 \
+    transformers>=4.41.2 \
+    peft>=0.11.1 \
+    datasets \
     sentencepiece \
-    protobuf
+    ftfy \
+    tensorboard \
+    Jinja2 \
+    bitsandbytes \
+    prodigyopt \
+    huggingface-hub \
+    wandb \
+    safetensors
 
-WORKDIR /workspace/flux2
-COPY flux2/pyproject.toml flux2/README.md flux2/LICENSE.md ./
-COPY flux2/src ./src
-COPY flux2/scripts ./scripts
+# diffusers (Flux2 pipeline is on dev/main)
+RUN conda run -n flux2 pip install \
+    "diffusers @ git+https://github.com/huggingface/diffusers.git"
 
-# Install FLUX.2 (brings torch/transformers pins from pyproject.toml)
-RUN conda run -n flux2 pip install -e . \
-    --extra-index-url https://download.pytorch.org/whl/cu129 \
-    --no-cache-dir
-
-WORKDIR /workspace
 # =========================
 # Convenience wrappers
 # =========================

@@ -1,0 +1,22 @@
+{
+  "metrics": [
+    "niqe",
+    "maniqa",
+    "musiq",
+    "clipiqa",
+    "lpips",
+    "dists",
+    "psnr",
+    "ssim"
+  ],
+  "lower_better": [
+    "dists",
+    "lpips",
+    "niqe"
+  ],
+  "digits": 4,
+  "caption": "Mean evaluation metrics across checkpoints.",
+  "label": "tab:mean-metrics",
+  "style": "booktabs",
+  "eps": 1e-12
+}

@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -7,11 +8,6 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 STAGE1_DIR = PROJECT_DIR / "stage1"
 if str(STAGE1_DIR) not in sys.path:
     sys.path.insert(0, str(STAGE1_DIR))
-
-import torch
-
-from utils.utils_perception import evaluate_perception, read_json_input
-from utils.utils_restoration import evaluate_restoration
 
 
 def main():
@@ -21,6 +17,12 @@ def main():
     parser.add_argument("--out", "-o", type=str, default=None, help="Output JSON path. If omitted, print to stdout.")
     parser.add_argument("--device", type=str, default="auto", choices=["auto", "cuda", "cpu"])
     parser.add_argument(
+        "--gpu_devices",
+        type=str,
+        default=None,
+        help="Optional CUDA_VISIBLE_DEVICES value, such as `0` or `0,1`.",
+    )
+    parser.add_argument(
         "--fr_resize",
         type=str,
         default="to_ref",
@@ -28,6 +30,14 @@ def main():
         help="How to handle FR size mismatch (lpips/dists).",
     )
     args = parser.parse_args()
+
+    if args.gpu_devices:
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_devices
+
+    import torch
+
+    from utils.utils_perception import evaluate_perception, read_json_input
+    from utils.utils_restoration import evaluate_restoration
 
     if args.device == "auto":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
