@@ -12,6 +12,8 @@ import torch
 import zipfile
 from torch.nn.functional import conv2d
 
+from utils.utils_image_align import align_hr_to_res_crop_numpy
+
 # ========== Global Constants ==========
 SCALE = 4
 
@@ -255,9 +257,10 @@ def evaluate_restoration(
             ref_img = read_image(ref_images[i])
             pred_img = read_image(pred_images[i])
 
-            # Size matching
+            # Size matching:
+            # Align HR(ref) to RES(pred) using the same semantics as diffusers resize_mode="crop".
             if ref_img.shape[:2] != pred_img.shape[:2]:
-                pred_img = resize_image(pred_img, (ref_img.shape[1], ref_img.shape[0]))
+                ref_img = align_hr_to_res_crop_numpy(ref_img, pred_img)
 
             # Convert to Y channel
             ref_y = to_y_channel(ref_img)
@@ -301,5 +304,8 @@ def evaluate_restoration(
     return {
         "mean": {"ssim": avg_ssim, "psnr": avg_psnr},
         "per_res": per_res,
-        "note": "Restoration metrics are computed on Y channel with crop_border=scale.",
+        "note": (
+            "Restoration metrics are computed on Y channel with crop_border=scale. "
+            "If shape mismatches, hr is aligned to res using diffusers resize_mode='crop' center-crop semantics."
+        ),
     }

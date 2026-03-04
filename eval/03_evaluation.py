@@ -25,9 +25,13 @@ def main():
     parser.add_argument(
         "--fr_resize",
         type=str,
-        default="to_ref",
-        choices=["to_ref", "none"],
-        help="How to handle FR size mismatch (lpips/dists).",
+        default="to_res_crop",
+        choices=["to_res_crop", "to_ref", "none"],
+        help=(
+            "How to align FR size mismatch (lpips/dists). "
+            "`to_res_crop`: align hr to res with diffusers resize_mode='crop' center-crop semantics. "
+            "`to_ref` is kept as a backward-compatible alias to the same behavior."
+        ),
     )
     args = parser.parse_args()
 

@@ -262,6 +262,29 @@ def parse_args(input_args=None):
         help="Scale of mode weighting scheme. Only effective when using the `'mode'` as the `weighting_scheme`.",
     )
     parser.add_argument(
+        "--use_nr_iqa_loss",
+        action="store_true",
+        help="Enable NR-IQA (MUSIQ) regularization on current-step x0 estimates.",
+    )
+    parser.add_argument(
+        "--lambda_q",
+        type=float,
+        default=0.0,
+        help="Weight for NR-IQA regularization term. 0.0 disables the term.",
+    )
+    parser.add_argument(
+        "--q_sigma_max",
+        type=float,
+        default=0.4,
+        help="Apply NR-IQA regularization only to samples with sigma <= q_sigma_max.",
+    )
+    parser.add_argument(
+        "--nr_iqa_metric",
+        type=str,
+        default="musiq",
+        help="NR-IQA metric for Q-loss. Supported labels: NIQE, ManIQA, MUSIQ, CLIP-IQA.",
+    )
+    parser.add_argument(
         "--optimizer",
         type=str,
         default="AdamW",

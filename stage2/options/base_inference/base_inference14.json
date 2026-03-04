@@ -1,10 +1,10 @@
 {
   "model_path": "/sr/code/sr/stage2/weights/flux2-klein-base-9b",
-  "input_json": "/sr/DIV2K_trainset_woutput/test_checkpoints_hat_real_sharper/hat_real_hat_gan_srx4_sharper/result.json",
-  "output_dir": "/sr/code/sr/stage2/outputs/test_2_sharper",
-  "output_json": "/sr/code/sr/stage2/outputs/test_2_sharper.json",
+  "input_json": "/sr/output/test_checkpoints/hat_real_hat_gan_srx4_sharper/result.json",
+  "output_dir": "/sr/code/sr/stage2/outputs/test_1_sharper",
+  "output_json": "/sr/code/sr/stage2/outputs/test_1_sharper.json",
   "prompts_json": "/sr/code/sr/stage2/prompts.json",
-  "prompt_name": "test_2",
+  "prompt_name": "test_1",
   "patch_size": 1024,
   "guidance_scale": 4.0,
   "num_inference_steps": 50,
@@ -12,10 +12,10 @@
   "device": "cuda",
   "seed": 0,
   "cpu_offload": true,
-  "test_name": "test_2_sharper",
+  "test_name": "test_1_sharper",
   "evaluation_output_dir": "/sr/code/sr/stage2/outputs/evaluation",
   "evaluation_device": "auto",
-  "evaluation_gpu_devices": "0",
+  "evaluation_gpu_devices": "3",
   "evaluation_fr_resize": "to_ref",
-  "gpu_devices": "0"
+  "gpu_devices": "3"
 }

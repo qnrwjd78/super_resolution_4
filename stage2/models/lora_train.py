@@ -18,6 +18,32 @@ from peft.utils import get_peft_model_state_dict
 from tqdm.auto import tqdm
 from transformers import Qwen2TokenizerFast, Qwen3ForCausalLM
 
+# Temporary compatibility shim: some diffusers builds reference torch.xpu
+# unconditionally, but torch 2.0.x may not expose torch.xpu.
+if not hasattr(torch, "xpu"):
+    class _TorchXPUStub:
+        @staticmethod
+        def is_available():
+            return False
+
+        @staticmethod
+        def empty_cache():
+            return None
+
+        @staticmethod
+        def device_count():
+            return 0
+
+        @staticmethod
+        def manual_seed(_seed):
+            return None
+
+        @staticmethod
+        def synchronize():
+            return None
+
+    torch.xpu = _TorchXPUStub()  # type: ignore[attr-defined]
+
 import diffusers
 from diffusers import (
     AutoencoderKLFlux2,
@@ -538,6 +564,7 @@ def main(args):
     transformer, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         transformer, optimizer, train_dataloader, lr_scheduler
     )
+    transformer_guidance_embeds = bool(getattr(unwrap_model(transformer).config, "guidance_embeds", False))
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
@@ -693,7 +720,7 @@ def main(args):
                 model_input_ids = torch.cat([model_input_ids, cond_model_input_ids], dim=1)
 
                 # handle guidance
-                if transformer.config.guidance_embeds:
+                if transformer_guidance_embeds:
                     guidance = torch.full([1], args.guidance_scale, device=accelerator.device)
                     guidance = guidance.expand(model_input.shape[0])
                 else:
@@ -723,11 +750,89 @@ def main(args):
                 target = noise - model_input
 
                 # Compute regular loss.
-                loss = torch.mean(
+                loss_fm = torch.mean(
                     (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
                     1,
                 )
-                loss = loss.mean()
+                loss_fm = loss_fm.mean()
+
+                # Optional NR-IQA regularization on current-step x0 estimate.
+                use_nr_iqa_loss = args.use_nr_iqa_loss
+                lambda_q = args.lambda_q
+                q_sigma_max = args.q_sigma_max
+                nr_iqa_metric_raw = args.nr_iqa_metric
+
+                loss_q = torch.zeros([], device=model_input.device, dtype=loss_fm.dtype)
+                if use_nr_iqa_loss and lambda_q != 0.0:
+                    if not hasattr(args, "_q_metric"):
+                        try:
+                            import pyiqa
+                        except Exception as exc:
+                            raise RuntimeError(
+                                "NR-IQA loss requested but `pyiqa` is not available. "
+                                "Install pyiqa in the training environment."
+                            ) from exc
+
+                        metric_aliases = {
+                            "niqe": "niqe",
+                            "maniqa": "maniqa",
+                            "musiq": "musiq",
+                            "clip-iqa": "clipiqa",
+                            "clip_iqa": "clipiqa",
+                            "clipiqa": "clipiqa",
+                        }
+                        metric_key = nr_iqa_metric_raw.strip().lower()
+                        metric_name = metric_aliases.get(metric_key)
+                        if metric_name is None:
+                            supported = "NIQE, ManIQA, MUSIQ, CLIP-IQA"
+                            raise ValueError(
+                                f"Unsupported nr_iqa_metric='{nr_iqa_metric_raw}'. "
+                                f"Supported labels: {supported}"
+                            )
+
+                        q_metric = pyiqa.create_metric(
+                            metric_name,
+                            device=accelerator.device,
+                            as_loss=True,
+                            loss_reduction="none",
+                        )
+                        q_metric.eval()
+                        for p in q_metric.parameters():
+                            p.requires_grad_(False)
+                        args._q_metric = q_metric
+                        args._q_metric_name = metric_name
+                        args._q_metric_lower_better = bool(getattr(q_metric, "lower_better", False))
+                        logger.info(
+                            "NR-IQA metric enabled: %s (lower_better=%s)",
+                            args._q_metric_name,
+                            args._q_metric_lower_better,
+                        )
+
+                    sigma_per_sample = sigmas.reshape(sigmas.shape[0], -1)[:, 0]
+                    q_mask = (sigma_per_sample <= q_sigma_max).float()
+
+                    if q_mask.sum() > 0:
+                        # model predicts v_hat = eps - x, so x_hat = z_t - sigma * v_hat
+                        x0_hat = noisy_model_input - sigmas * model_pred
+                        x0_hat = x0_hat * latents_bn_std.to(dtype=x0_hat.dtype) + latents_bn_mean.to(dtype=x0_hat.dtype)
+                        x0_hat = Flux2KleinPipeline._unpatchify_latents(x0_hat)
+
+                        with offload_models(vae, device=accelerator.device, offload=args.offload):
+                            sr_hat = vae.decode(x0_hat.to(dtype=vae.dtype), return_dict=False)[0]
+
+                        sr_hat = (sr_hat / 2 + 0.5).clamp(0, 1)
+                        q_score = args._q_metric(sr_hat.float())
+                        if isinstance(q_score, tuple):
+                            q_score = q_score[0]
+                        q_score = q_score.reshape(q_score.shape[0], -1).mean(dim=1)
+                        q_score = (q_score * q_mask).sum() / q_mask.sum().clamp_min(1.0)
+                        # lower-better metrics should be minimized, higher-better metrics maximized.
+                        if args._q_metric_lower_better:
+                            loss_q = q_score.to(dtype=loss_fm.dtype)
+                        else:
+                            loss_q = -q_score.to(dtype=loss_fm.dtype)
+
+                loss = loss_fm + lambda_q * loss_q
 
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:

@@ -13,6 +13,3 @@
 [submodule "stage1/repos/DAT"]
 	path = stage1/repos/DAT
 	url = https://github.com/zhengchen1999/DAT.git
-[submodule "stage2/repos/flux2"]
-	path = stage2/repos/flux2
-	url = https://github.com/black-forest-labs/flux2.git

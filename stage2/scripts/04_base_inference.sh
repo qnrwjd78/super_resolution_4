@@ -28,6 +28,17 @@ run_flux2_python() {
   fi
 }
 
+run_eval_python() {
+  if has conda; then
+    conda run -n eval --no-capture-output python "$@"
+  elif [[ -x /usr/local/bin/eval ]]; then
+    /usr/local/bin/eval python "$@"
+  else
+    echo "ERROR: conda env 'eval' (or /usr/local/bin/eval wrapper) not found." >&2
+    exit 1
+  fi
+}
+
 load_options_json() {
   local path="$1"
   if [[ ! -f "$path" ]]; then
@@ -221,5 +232,5 @@ if [[ "$RUN_EVAL" == "1" ]]; then
   echo "INFER_OUTPUT_JSON    : $OUTPUT_JSON"
   echo "EVAL_OUTPUT_JSON     : $EVALUATION_OUTPUT_JSON"
   echo
-  run_flux2_python "${EVAL_ARGS[@]}"
+  run_eval_python "${EVAL_ARGS[@]}"
 fi

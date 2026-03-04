@@ -5,21 +5,34 @@ import os
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
 
 import pyiqa
+from utils.utils_image_align import align_hr_to_res_crop_pil, pil_to_tensor_ready_numpy
+
+
+def load_image_pil(path: str) -> Image.Image:
+    with Image.open(path) as img:
+        return img.convert("RGB")
 
 
 def load_image_tensor(path: str, device: torch.device) -> torch.Tensor:
     """
     Load image as float tensor in [0,1], shape (1,3,H,W), RGB.
     """
-    img = Image.open(path).convert("RGB")
+    img = load_image_pil(path)
     # PIL -> tensor (C,H,W) in [0,1]
-    x = torch.from_numpy(__import__("numpy").array(img)).to(torch.float32) / 255.0  # (H,W,3)
+    x = torch.from_numpy(np.array(img)).to(torch.float32) / 255.0  # (H,W,3)
     x = x.permute(2, 0, 1).unsqueeze(0).to(device)  # (1,3,H,W)
+    return x
+
+
+def pil_image_to_tensor(image: Image.Image, device: torch.device) -> torch.Tensor:
+    x = torch.from_numpy(pil_to_tensor_ready_numpy(image)).to(torch.float32)
+    x = x.permute(2, 0, 1).unsqueeze(0).to(device)
     return x
 
 
@@ -64,7 +77,7 @@ def build_metrics(device: torch.device) -> Tuple[Dict[str, Any], Dict[str, Any]]
 def evaluate_perception(
     items: List[Dict[str, Any]],
     device: torch.device,
-    fr_resize: str = "to_ref",  # or "none"
+    fr_resize: str = "to_res_crop",  # "to_res_crop"(or legacy "to_ref"), "none"
 ) -> Dict[str, Any]:
     fr_metrics, nr_metrics = build_metrics(device)
 
@@ -91,6 +104,7 @@ def evaluate_perception(
                     raise FileNotFoundError(f"res not found: {res_path}")
 
                 x = load_image_tensor(res_path, device)
+                x_pil = load_image_pil(res_path)
 
                 has_hr = bool(hr_path) and os.path.exists(hr_path) if hr_path else False
 
@@ -101,17 +115,23 @@ def evaluate_perception(
 
                 # FR metrics if hr exists
                 if has_hr:
-                    y = load_image_tensor(hr_path, device)
+                    y_pil = load_image_pil(hr_path)
 
                     x_fr = x
-                    if fr_resize == "to_ref":
-                        x_fr = resize_to_match(x_fr, y, mode="bicubic")
+                    if fr_resize in ("to_res_crop", "to_ref"):
+                        # Keep backward compatibility for existing `to_ref` configs.
+                        # We align HR to RES using diffusers resize_mode="crop" semantics.
+                        y_pil = align_hr_to_res_crop_pil(y_pil, x_pil)
+                        y = pil_image_to_tensor(y_pil, device)
                     elif fr_resize == "none":
+                        y = pil_image_to_tensor(y_pil, device)
                         if x_fr.shape[-2:] != y.shape[-2:]:
                             raise ValueError(
                                 f"FR size mismatch: res={tuple(x_fr.shape[-2:])}, hr={tuple(y.shape[-2:])}. "
-                                f"Use --fr_resize to_ref to auto-resize."
+                                f"Use --fr_resize to_res_crop to auto-align HR to RES."
                             )
+                    else:
+                        raise ValueError(f"Unsupported fr_resize mode: {fr_resize}")
 
                     for name, metric in fr_metrics.items():
                         val = metric(x_fr, y)
@@ -137,7 +157,8 @@ def evaluate_perception(
         "note": (
             "If hr exists, FR metrics (lpips,dists) are computed. "
             "NR metrics (niqe,maniqa,musiq,clipiqa) are always computed on res. "
-            "If sizes differ for FR, res is resized to hr when fr_resize=to_ref."
+            "For FR alignment, hr is transformed to res size with diffusers resize_mode='crop' center-crop semantics "
+            "when fr_resize=to_res_crop (legacy alias: to_ref)."
         ),
     }
 
