@@ -250,6 +250,13 @@ def parse_args(input_args=None):
         help=('We default to the "none" weighting scheme for uniform sampling and uniform loss'),
     )
     parser.add_argument(
+        "--train_timestep_mode",
+        type=str,
+        default="random",
+        choices=["random", "infer50_random"],
+        help="Timestep sampling mode for training (`random` or inference-aligned 50-step random pool).",
+    )
+    parser.add_argument(
         "--logit_mean", type=float, default=0.0, help="mean to use when using the `'logit_normal'` weighting scheme."
     )
     parser.add_argument(
@@ -273,6 +280,12 @@ def parse_args(input_args=None):
         help="Weight for NR-IQA regularization term. 0.0 disables the term.",
     )
     parser.add_argument(
+        "--lambda_fm",
+        type=float,
+        default=1.0,
+        help="Weight for flow-matching loss term. 0.0 disables the term.",
+    )
+    parser.add_argument(
         "--q_sigma_max",
         type=float,
         default=0.4,
@@ -282,7 +295,7 @@ def parse_args(input_args=None):
         "--nr_iqa_metric",
         type=str,
         default="musiq",
-        help="NR-IQA metric for Q-loss. Supported labels: NIQE, ManIQA, MUSIQ, CLIP-IQA.",
+        help="Q-loss metric. Supported labels: NIQE, ManIQA, MUSIQ, CLIP-IQA, L2.",
     )
     parser.add_argument(
         "--optimizer",

@@ -69,6 +69,57 @@ run_eval_python() {
   fi
 }
 
+run_cuda_preflight() {
+  run_flux2_python - <<'PY'
+import os
+import torch
+
+def _short(value, limit=240):
+    if value is None:
+        return "<unset>"
+    value = str(value)
+    if len(value) <= limit:
+        return value
+    return value[:limit] + "...(truncated)"
+
+cvis = os.environ.get("CUDA_VISIBLE_DEVICES")
+nvis = os.environ.get("NVIDIA_VISIBLE_DEVICES")
+ld = os.environ.get("LD_LIBRARY_PATH")
+nvml_check = os.environ.get("PYTORCH_NVML_BASED_CUDA_CHECK")
+
+print(f"CUDA_VISIBLE_DEVICES : {_short(cvis)}")
+print(f"NVIDIA_VISIBLE_DEVICES : {_short(nvis)}")
+print(f"PYTORCH_NVML_BASED_CUDA_CHECK : {_short(nvml_check)}")
+print(f"LD_LIBRARY_PATH : {_short(ld)}")
+print(f"torch.__version__ : {torch.__version__}")
+print(f"torch.version.cuda : {torch.version.cuda}")
+
+available = torch.cuda.is_available()
+count = torch.cuda.device_count()
+print(f"torch.cuda.is_available : {available}")
+print(f"torch.cuda.device_count : {count}")
+
+init_error = None
+try:
+    torch.cuda.init()
+    print("torch.cuda.init : OK")
+except Exception as exc:
+    init_error = repr(exc)
+    print(f"torch.cuda.init : FAIL ({init_error})")
+
+if available and count > 0:
+    for i in range(count):
+        try:
+            name = torch.cuda.get_device_name(i)
+        except Exception:
+            name = "<unknown>"
+        print(f"cuda:{i} -> {name}")
+    raise SystemExit(0)
+
+raise SystemExit(7)
+PY
+}
+
 resolve_prompt_by_name() {
   local prompts_json="$1"
   local prompt_name="$2"
@@ -169,7 +220,6 @@ mapping = {
     "machine_rank": "CFG_MACHINE_RANK",
     "main_process_ip": "CFG_MAIN_PROCESS_IP",
     "main_process_port": "CFG_MAIN_PROCESS_PORT",
-    "effective_train_batch_size": "CFG_EFFECTIVE_TRAIN_BATCH_SIZE",
     "num_train_epochs": "CFG_NUM_TRAIN_EPOCHS",
     "learning_rate": "CFG_LEARNING_RATE",
     "mixed_precision": "CFG_MIXED_PRECISION",
@@ -318,7 +368,6 @@ NUM_MACHINES="${NUM_MACHINES:-${CFG_NUM_MACHINES:-1}}"
 MACHINE_RANK="${MACHINE_RANK:-${CFG_MACHINE_RANK:-0}}"
 MAIN_PROCESS_IP="${MAIN_PROCESS_IP:-${CFG_MAIN_PROCESS_IP:-}}"
 MAIN_PROCESS_PORT="${MAIN_PROCESS_PORT:-${CFG_MAIN_PROCESS_PORT:-}}"
-EFFECTIVE_TRAIN_BATCH_SIZE="${EFFECTIVE_TRAIN_BATCH_SIZE:-${CFG_EFFECTIVE_TRAIN_BATCH_SIZE:-0}}"
 NUM_TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-${CFG_NUM_TRAIN_EPOCHS:-1}}"
 LEARNING_RATE="${LEARNING_RATE:-${CFG_LEARNING_RATE:-1e-4}}"
 MIXED_PRECISION="${MIXED_PRECISION:-${CFG_MIXED_PRECISION:-bf16}}"
@@ -332,7 +381,9 @@ RANDOM_FLIP="${RANDOM_FLIP:-${CFG_RANDOM_FLIP:-0}}"
 CENTER_CROP="${CENTER_CROP:-${CFG_CENTER_CROP:-0}}"
 OFFLOAD="${OFFLOAD:-${CFG_OFFLOAD:-1}}"
 RESUME_FROM_CHECKPOINT="${RESUME_FROM_CHECKPOINT:-${CFG_RESUME_FROM_CHECKPOINT:-}}"
-GPU_DEVICES="${GPU_DEVICES:-${CFG_GPU_DEVICES:-${CUDA_VISIBLE_DEVICES:-}}}"
+# Prefer per-run JSON config first so concurrent jobs can target different GPUs reliably.
+GPU_DEVICES="${CFG_GPU_DEVICES:-${GPU_DEVICES:-${CUDA_VISIBLE_DEVICES:-}}}"
+GPU_DEVICES="${GPU_DEVICES// /}"
 
 TEST_DATA_JSON="${TEST_DATA_JSON:-${CFG_TEST_DATA_JSON:-}}"
 TEST_NAME="${TEST_NAME:-${CFG_TEST_NAME:-}}"
@@ -393,6 +444,36 @@ fi
 
 if [[ -n "$GPU_DEVICES" ]]; then
   export CUDA_VISIBLE_DEVICES="$GPU_DEVICES"
+  # Avoid accidental CPU-forced runs from inherited shell environment.
+  unset ACCELERATE_USE_CPU
+
+  CUDA_PREFLIGHT_OUTPUT=""
+  if ! CUDA_PREFLIGHT_OUTPUT="$(run_cuda_preflight)"; then
+    if [[ -n "$CUDA_PREFLIGHT_OUTPUT" ]]; then
+      echo "$CUDA_PREFLIGHT_OUTPUT"
+    fi
+    echo "WARN: CUDA is not visible in the current runtime. Retrying with cleaned CUDA env..." >&2
+
+    CUDA_PREFLIGHT_CLEAN_OUTPUT=""
+    if CUDA_PREFLIGHT_CLEAN_OUTPUT="$(
+      LD_LIBRARY_PATH="" CUDA_HOME="" CUDA_INC_DIR="" CUDA_PATH="" PYTORCH_NVML_BASED_CUDA_CHECK=0 run_cuda_preflight
+    )"; then
+      unset LD_LIBRARY_PATH CUDA_HOME CUDA_INC_DIR CUDA_PATH
+      export PYTORCH_NVML_BASED_CUDA_CHECK=0
+      echo "$CUDA_PREFLIGHT_CLEAN_OUTPUT"
+      echo "INFO: Applied cleaned CUDA environment for this run." >&2
+    else
+      if [[ -n "$CUDA_PREFLIGHT_CLEAN_OUTPUT" ]]; then
+        echo "$CUDA_PREFLIGHT_CLEAN_OUTPUT"
+      fi
+      echo "ERROR: CUDA is not visible in the training runtime. Aborting before launch." >&2
+      echo "       Check GPU_DEVICES/CUDA_VISIBLE_DEVICES and ensure ACCELERATE_USE_CPU is not forced." >&2
+      echo "       Also verify flux2 env torch build and driver linkage." >&2
+      exit 1
+    fi
+  else
+    echo "$CUDA_PREFLIGHT_OUTPUT"
+  fi
 fi
 
 if [[ -z "$NUM_PROCESSES" ]]; then
@@ -411,8 +492,7 @@ for pair in \
   "GRADIENT_ACCUMULATION_STEPS:$GRADIENT_ACCUMULATION_STEPS" \
   "NUM_PROCESSES:$NUM_PROCESSES" \
   "NUM_MACHINES:$NUM_MACHINES" \
-  "MACHINE_RANK:$MACHINE_RANK" \
-  "EFFECTIVE_TRAIN_BATCH_SIZE:$EFFECTIVE_TRAIN_BATCH_SIZE"; do
+  "MACHINE_RANK:$MACHINE_RANK"; do
   key="${pair%%:*}"
   value="${pair#*:}"
   if ! is_uint "$value"; then
@@ -429,24 +509,6 @@ fi
 if [[ "$NUM_MACHINES" -gt 1 ]]; then
   if [[ -z "$MAIN_PROCESS_IP" || -z "$MAIN_PROCESS_PORT" ]]; then
     echo "ERROR: MAIN_PROCESS_IP and MAIN_PROCESS_PORT are required when NUM_MACHINES > 1." >&2
-    exit 1
-  fi
-fi
-
-if [[ "$EFFECTIVE_TRAIN_BATCH_SIZE" -gt 0 ]]; then
-  BATCH_DENOM=$((TRAIN_BATCH_SIZE * NUM_PROCESSES))
-  if [[ "$BATCH_DENOM" -lt 1 ]]; then
-    echo "ERROR: invalid batch denominator computed from TRAIN_BATCH_SIZE and NUM_PROCESSES." >&2
-    exit 1
-  fi
-  if (( EFFECTIVE_TRAIN_BATCH_SIZE % BATCH_DENOM != 0 )); then
-    echo "ERROR: EFFECTIVE_TRAIN_BATCH_SIZE must be divisible by TRAIN_BATCH_SIZE * NUM_PROCESSES." >&2
-    echo "       got target=$EFFECTIVE_TRAIN_BATCH_SIZE, denominator=$BATCH_DENOM" >&2
-    exit 1
-  fi
-  GRADIENT_ACCUMULATION_STEPS=$((EFFECTIVE_TRAIN_BATCH_SIZE / BATCH_DENOM))
-  if [[ "$GRADIENT_ACCUMULATION_STEPS" -lt 1 ]]; then
-    echo "ERROR: computed GRADIENT_ACCUMULATION_STEPS is < 1." >&2
     exit 1
   fi
 fi
@@ -610,9 +672,6 @@ echo "NUM_PROCESSES     : $NUM_PROCESSES"
 echo "NUM_MACHINES      : $NUM_MACHINES"
 echo "MACHINE_RANK      : $MACHINE_RANK"
 echo "GLOBAL_BATCH_SIZE : $GLOBAL_BATCH_SIZE"
-if [[ "$EFFECTIVE_TRAIN_BATCH_SIZE" -gt 0 ]]; then
-  echo "TARGET_GLOBAL_BS  : $EFFECTIVE_TRAIN_BATCH_SIZE"
-fi
 if [[ "$USE_DISTRIBUTED" == "1" ]]; then
   echo "TRAIN_LAUNCHER    : accelerate"
 else

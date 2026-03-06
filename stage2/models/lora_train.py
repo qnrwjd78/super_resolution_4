@@ -4,6 +4,7 @@ import logging
 import math
 import os
 import shutil
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -95,6 +96,52 @@ def module_filter_fn(mod: torch.nn.Module, fqn: str):
         if mod.in_features % 16 != 0 or mod.out_features % 16 != 0:
             return False
     return True
+
+
+def compute_empirical_mu(image_seq_len: int, num_steps: int) -> float:
+    a1, b1 = 8.73809524e-05, 1.89833333
+    a2, b2 = 0.00016927, 0.45666666
+    if image_seq_len > 4300:
+        return float(a2 * image_seq_len + b2)
+
+    m_200 = a2 * image_seq_len + b2
+    m_10 = a1 * image_seq_len + b1
+    a = (m_200 - m_10) / 190.0
+    b = m_200 - 200.0 * a
+    return float(a * num_steps + b)
+
+
+def build_inference_timestep_pool(
+    scheduler: FlowMatchEulerDiscreteScheduler,
+    image_seq_len: int,
+    num_inference_steps: int,
+    device: torch.device,
+    sigma_dtype: torch.dtype,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    if num_inference_steps < 1:
+        raise ValueError("`num_inference_steps` must be >= 1.")
+
+    if num_inference_steps == 1:
+        sigmas = [1.0]
+    else:
+        step = (1.0 - 1.0 / num_inference_steps) / (num_inference_steps - 1)
+        sigmas = [1.0 - i * step for i in range(num_inference_steps)]
+
+    if hasattr(scheduler.config, "use_flow_sigmas") and scheduler.config.use_flow_sigmas:
+        sigmas = None
+
+    mu = compute_empirical_mu(image_seq_len=image_seq_len, num_steps=num_inference_steps)
+    scheduler_for_sampling = copy.deepcopy(scheduler)
+    scheduler_for_sampling.set_timesteps(
+        num_inference_steps=num_inference_steps,
+        device=device,
+        sigmas=sigmas,
+        mu=mu,
+    )
+
+    timesteps = scheduler_for_sampling.timesteps.to(device=device, dtype=torch.float32)
+    sigma_pool = scheduler_for_sampling.sigmas[: timesteps.shape[0]].to(device=device, dtype=sigma_dtype)
+    return timesteps, sigma_pool
 
 
 def main(args):
@@ -646,6 +693,10 @@ def main(args):
             sigma = sigma.unsqueeze(-1)
         return sigma
 
+    infer50_timestep_pool = None
+    infer50_sigma_pool = None
+    infer50_seq_len = None
+
     for epoch in range(first_epoch, args.num_train_epochs):
         transformer.train()
 
@@ -691,21 +742,54 @@ def main(args):
                 noise = torch.randn_like(model_input)
                 bsz = model_input.shape[0]
 
-                # Sample a random timestep for each image
-                # for weighting schemes where we sample timesteps non-uniformly
-                u = compute_density_for_timestep_sampling(
-                    weighting_scheme=args.weighting_scheme,
-                    batch_size=bsz,
-                    logit_mean=args.logit_mean,
-                    logit_std=args.logit_std,
-                    mode_scale=args.mode_scale,
-                )
-                indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
-                timesteps = noise_scheduler_copy.timesteps[indices].to(device=model_input.device)
+                if args.train_timestep_mode == "infer50_random":
+                    image_seq_len = int(model_input.shape[-2] * model_input.shape[-1])
+                    if (
+                        infer50_timestep_pool is None
+                        or infer50_sigma_pool is None
+                        or infer50_seq_len != image_seq_len
+                    ):
+                        infer50_timestep_pool, infer50_sigma_pool = build_inference_timestep_pool(
+                            scheduler=noise_scheduler,
+                            image_seq_len=image_seq_len,
+                            num_inference_steps=50,
+                            device=model_input.device,
+                            sigma_dtype=model_input.dtype,
+                        )
+                        infer50_seq_len = image_seq_len
+                        if accelerator.is_local_main_process:
+                            logger.info(
+                                "Initialized infer50 timestep pool for image_seq_len=%s (%s steps).",
+                                infer50_seq_len,
+                                infer50_timestep_pool.shape[0],
+                            )
 
-                # Add noise according to flow matching.
-                # zt = (1 - texp) * x + texp * z1
-                sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
+                    indices = torch.randint(
+                        low=0,
+                        high=infer50_timestep_pool.shape[0],
+                        size=(bsz,),
+                        device=model_input.device,
+                    )
+                    timesteps = infer50_timestep_pool[indices]
+                    sigma_values = infer50_sigma_pool[indices]
+                    sigmas = sigma_values.view(bsz, *([1] * (model_input.ndim - 1)))
+                else:
+                    # Sample a random timestep for each image
+                    # for weighting schemes where we sample timesteps non-uniformly
+                    u = compute_density_for_timestep_sampling(
+                        weighting_scheme=args.weighting_scheme,
+                        batch_size=bsz,
+                        logit_mean=args.logit_mean,
+                        logit_std=args.logit_std,
+                        mode_scale=args.mode_scale,
+                    )
+                    indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                    timesteps = noise_scheduler_copy.timesteps[indices].to(device=model_input.device)
+
+                    # Add noise according to flow matching.
+                    # zt = (1 - texp) * x + texp * z1
+                    sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
+
                 noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise
 
                 # [B, C, H, W] -> [B, H*W, C]
@@ -742,99 +826,124 @@ def main(args):
 
                 model_pred = Flux2KleinPipeline._unpack_latents_with_ids(model_pred, model_input_ids)
 
-                # these weighting schemes use a uniform timestep sampling
-                # and instead post-weight the loss
-                weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
+                lambda_fm = args.lambda_fm
+                if lambda_fm != 0.0:
+                    # these weighting schemes use a uniform timestep sampling
+                    # and instead post-weight the loss
+                    weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
 
-                # flow matching loss
-                target = noise - model_input
+                    # flow matching loss
+                    target = noise - model_input
 
-                # Compute regular loss.
-                loss_fm = torch.mean(
-                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-                    1,
-                )
-                loss_fm = loss_fm.mean()
+                    # Compute regular loss.
+                    loss_fm = torch.mean(
+                        (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                        1,
+                    )
+                    loss_fm = loss_fm.mean()
+                else:
+                    loss_fm = torch.zeros([], device=model_input.device, dtype=model_pred.dtype)
 
                 # Optional NR-IQA regularization on current-step x0 estimate.
                 use_nr_iqa_loss = args.use_nr_iqa_loss
                 lambda_q = args.lambda_q
                 q_sigma_max = args.q_sigma_max
                 nr_iqa_metric_raw = args.nr_iqa_metric
+                q_loss_active = use_nr_iqa_loss and lambda_q != 0.0
 
-                loss_q = torch.zeros([], device=model_input.device, dtype=loss_fm.dtype)
-                if use_nr_iqa_loss and lambda_q != 0.0:
-                    if not hasattr(args, "_q_metric"):
-                        try:
-                            import pyiqa
-                        except Exception as exc:
-                            raise RuntimeError(
-                                "NR-IQA loss requested but `pyiqa` is not available. "
-                                "Install pyiqa in the training environment."
-                            ) from exc
+                # Keep VAE on GPU through backward only when Q-loss is active with offload.
+                qloss_vae_scope = (
+                    offload_models(vae, device=accelerator.device, offload=args.offload)
+                    if q_loss_active and args.offload
+                    else nullcontext()
+                )
+                with qloss_vae_scope:
+                    loss_q = torch.zeros([], device=model_input.device, dtype=loss_fm.dtype)
+                    if q_loss_active:
+                        if not hasattr(args, "_q_metric"):
+                            metric_key = nr_iqa_metric_raw.strip().lower()
+                            if metric_key in {"l2", "mse", "l_2"}:
+                                args._q_metric = None
+                                args._q_metric_name = "l2"
+                                args._q_metric_lower_better = True
+                                args._q_metric_is_l2 = True
+                                logger.info("Q-loss metric enabled: L2 (reference MSE)")
+                            else:
+                                try:
+                                    import pyiqa
+                                except Exception as exc:
+                                    raise RuntimeError(
+                                        "NR-IQA loss requested but `pyiqa` is not available. "
+                                        "Install pyiqa in the training environment."
+                                    ) from exc
 
-                        metric_aliases = {
-                            "niqe": "niqe",
-                            "maniqa": "maniqa",
-                            "musiq": "musiq",
-                            "clip-iqa": "clipiqa",
-                            "clip_iqa": "clipiqa",
-                            "clipiqa": "clipiqa",
-                        }
-                        metric_key = nr_iqa_metric_raw.strip().lower()
-                        metric_name = metric_aliases.get(metric_key)
-                        if metric_name is None:
-                            supported = "NIQE, ManIQA, MUSIQ, CLIP-IQA"
-                            raise ValueError(
-                                f"Unsupported nr_iqa_metric='{nr_iqa_metric_raw}'. "
-                                f"Supported labels: {supported}"
-                            )
+                                metric_aliases = {
+                                    "niqe": "niqe",
+                                    "maniqa": "maniqa",
+                                    "musiq": "musiq",
+                                    "clip-iqa": "clipiqa",
+                                    "clip_iqa": "clipiqa",
+                                    "clipiqa": "clipiqa",
+                                }
+                                metric_name = metric_aliases.get(metric_key)
+                                if metric_name is None:
+                                    supported = "NIQE, ManIQA, MUSIQ, CLIP-IQA, L2"
+                                    raise ValueError(
+                                        f"Unsupported nr_iqa_metric='{nr_iqa_metric_raw}'. "
+                                        f"Supported labels: {supported}"
+                                    )
 
-                        q_metric = pyiqa.create_metric(
-                            metric_name,
-                            device=accelerator.device,
-                            as_loss=True,
-                            loss_reduction="none",
-                        )
-                        q_metric.eval()
-                        for p in q_metric.parameters():
-                            p.requires_grad_(False)
-                        args._q_metric = q_metric
-                        args._q_metric_name = metric_name
-                        args._q_metric_lower_better = bool(getattr(q_metric, "lower_better", False))
-                        logger.info(
-                            "NR-IQA metric enabled: %s (lower_better=%s)",
-                            args._q_metric_name,
-                            args._q_metric_lower_better,
-                        )
+                                q_metric = pyiqa.create_metric(
+                                    metric_name,
+                                    device=accelerator.device,
+                                    as_loss=True,
+                                    loss_reduction="none",
+                                )
+                                q_metric.eval()
+                                for p in q_metric.parameters():
+                                    p.requires_grad_(False)
+                                args._q_metric = q_metric
+                                args._q_metric_name = metric_name
+                                args._q_metric_lower_better = bool(getattr(q_metric, "lower_better", False))
+                                args._q_metric_is_l2 = False
+                                logger.info(
+                                    "NR-IQA metric enabled: %s (lower_better=%s)",
+                                    args._q_metric_name,
+                                    args._q_metric_lower_better,
+                                )
 
-                    sigma_per_sample = sigmas.reshape(sigmas.shape[0], -1)[:, 0]
-                    q_mask = (sigma_per_sample <= q_sigma_max).float()
+                        sigma_per_sample = sigmas.reshape(sigmas.shape[0], -1)[:, 0]
+                        q_mask = (sigma_per_sample <= q_sigma_max).float()
 
-                    if q_mask.sum() > 0:
-                        # model predicts v_hat = eps - x, so x_hat = z_t - sigma * v_hat
-                        x0_hat = noisy_model_input - sigmas * model_pred
-                        x0_hat = x0_hat * latents_bn_std.to(dtype=x0_hat.dtype) + latents_bn_mean.to(dtype=x0_hat.dtype)
-                        x0_hat = Flux2KleinPipeline._unpatchify_latents(x0_hat)
+                        if q_mask.sum() > 0:
+                            # model predicts v_hat = eps - x, so x_hat = z_t - sigma * v_hat
+                            x0_hat = noisy_model_input - sigmas * model_pred
+                            x0_hat = x0_hat * latents_bn_std.to(dtype=x0_hat.dtype) + latents_bn_mean.to(dtype=x0_hat.dtype)
+                            x0_hat = Flux2KleinPipeline._unpatchify_latents(x0_hat)
 
-                        with offload_models(vae, device=accelerator.device, offload=args.offload):
                             sr_hat = vae.decode(x0_hat.to(dtype=vae.dtype), return_dict=False)[0]
+                            sr_hat = (sr_hat / 2 + 0.5).clamp(0, 1)
 
-                        sr_hat = (sr_hat / 2 + 0.5).clamp(0, 1)
-                        q_score = args._q_metric(sr_hat.float())
-                        if isinstance(q_score, tuple):
-                            q_score = q_score[0]
-                        q_score = q_score.reshape(q_score.shape[0], -1).mean(dim=1)
-                        q_score = (q_score * q_mask).sum() / q_mask.sum().clamp_min(1.0)
-                        # lower-better metrics should be minimized, higher-better metrics maximized.
-                        if args._q_metric_lower_better:
-                            loss_q = q_score.to(dtype=loss_fm.dtype)
-                        else:
-                            loss_q = -q_score.to(dtype=loss_fm.dtype)
+                            if getattr(args, "_q_metric_is_l2", False):
+                                # pixel_values are normalized to [-1, 1]; align to [0, 1].
+                                target_pixels = (pixel_values / 2 + 0.5).clamp(0, 1)
+                                q_score = ((sr_hat.float() - target_pixels.float()) ** 2).reshape(sr_hat.shape[0], -1).mean(dim=1)
+                            else:
+                                q_score = args._q_metric(sr_hat.float())
+                                if isinstance(q_score, tuple):
+                                    q_score = q_score[0]
+                                q_score = q_score.reshape(q_score.shape[0], -1).mean(dim=1)
 
-                loss = loss_fm + lambda_q * loss_q
+                            q_score = (q_score * q_mask).sum() / q_mask.sum().clamp_min(1.0)
+                            # lower-better metrics should be minimized, higher-better metrics maximized.
+                            if args._q_metric_lower_better:
+                                loss_q = q_score.to(dtype=loss_fm.dtype)
+                            else:
+                                loss_q = -q_score.to(dtype=loss_fm.dtype)
 
-                accelerator.backward(loss)
+                    loss = lambda_fm * loss_fm + lambda_q * loss_q
+                    accelerator.backward(loss)
+
                 if accelerator.sync_gradients:
                     params_to_clip = transformer.parameters()
                     accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)

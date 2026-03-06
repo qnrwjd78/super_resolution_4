@@ -11,7 +11,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from diffusers import Flux2KleinPipeline
-from PIL import Image
+from PIL import Image, ImageOps
 from PIL.ImageOps import exif_transpose
 from tqdm.auto import tqdm
 
@@ -193,6 +193,33 @@ def parse_args():
         default=0.15,
         help="Gaussian blending width ratio for overlapping tiles.",
     )
+    parser.add_argument(
+        "--canvas_padding_mode",
+        type=str,
+        default="none",
+        choices=["none", "reflect", "replicate", "constant"],
+        help=(
+            "Canvas mismatch handling in canvas_tile mode. "
+            "`none`: keep legacy behavior (round down). "
+            "Others: pad canvas, run tiled inference, then crop back to requested canvas size."
+        ),
+    )
+    parser.add_argument(
+        "--canvas_padding_position",
+        type=str,
+        default="one_side",
+        choices=["one_side", "center"],
+        help=(
+            "Where to place padded pixels when --canvas_padding_mode != none. "
+            "`one_side`: pad right/bottom. `center`: distribute around all sides."
+        ),
+    )
+    parser.add_argument(
+        "--canvas_padding_value",
+        type=float,
+        default=0.0,
+        help="Constant fill value used when --canvas_padding_mode=constant (0~255 range recommended).",
+    )
 
     parser.add_argument(
         "--dtype",
@@ -349,6 +376,53 @@ class TileCoord:
     x1: int
 
 
+@dataclass
+class CanvasSpec:
+    render_height: int
+    render_width: int
+    output_height: int
+    output_width: int
+    pad_top: int
+    pad_bottom: int
+    pad_left: int
+    pad_right: int
+
+
+def pad_rgb_image(
+    image: Image.Image,
+    pad_top: int,
+    pad_bottom: int,
+    pad_left: int,
+    pad_right: int,
+    mode: str,
+    value: float = 0.0,
+) -> Image.Image:
+    if pad_top == 0 and pad_bottom == 0 and pad_left == 0 and pad_right == 0:
+        return image
+
+    arr = np.asarray(image)
+    if arr.ndim != 3:
+        raise ValueError("pad_rgb_image expects an RGB image array.")
+
+    pad_spec = ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0))
+    if mode == "constant":
+        fill = int(round(value))
+        fill = max(0, min(fill, 255))
+        padded = np.pad(arr, pad_spec, mode="constant", constant_values=fill)
+    elif mode == "replicate":
+        padded = np.pad(arr, pad_spec, mode="edge")
+    elif mode == "reflect":
+        # Reflect can fail for tiny dimensions with large padding; fallback to edge.
+        try:
+            padded = np.pad(arr, pad_spec, mode="reflect")
+        except ValueError:
+            padded = np.pad(arr, pad_spec, mode="edge")
+    else:
+        raise ValueError(f"Unsupported padding mode: {mode}")
+
+    return Image.fromarray(padded.astype(np.uint8), mode="RGB")
+
+
 def make_starts(total: int, tile: int, overlap: int) -> List[int]:
     assert tile > overlap, "tile must be larger than overlap"
     if total <= tile:
@@ -424,21 +498,43 @@ class Flux2CanvasRunner:
         tile_overlap_px: int = 256,
         tile_batch_size: int = 4,
         sigma_ratio: float = 0.15,
+        canvas_padding_mode: str = "none",
+        canvas_padding_position: str = "one_side",
+        canvas_padding_value: float = 0.0,
     ):
         self.pipe = pipe
         self.tile_size_px = tile_size_px
         self.tile_overlap_px = tile_overlap_px
         self.tile_batch_size = tile_batch_size
         self.sigma_ratio = sigma_ratio
+        self.canvas_padding_mode = canvas_padding_mode
+        self.canvas_padding_position = canvas_padding_position
+        self.canvas_padding_value = canvas_padding_value
 
     def _round_down_multiple(self, x: int, multiple: int) -> int:
         return max(multiple, (int(x) // multiple) * multiple)
 
+    def _round_up_multiple(self, x: int, multiple: int) -> int:
+        return max(multiple, ((int(x) + multiple - 1) // multiple) * multiple)
+
+    def _align_size_to_tile_grid(self, size_px: int, latent_multiple: int, tile_lat: int, overlap_lat: int) -> int:
+        size_lat = max(1, size_px // latent_multiple)
+        if size_lat <= tile_lat:
+            return size_lat * latent_multiple
+
+        stride = tile_lat - overlap_lat
+        if stride <= 0:
+            raise ValueError(f"Invalid tile stride: tile_lat={tile_lat}, overlap_lat={overlap_lat}")
+
+        rem = (size_lat - tile_lat) % stride
+        if rem != 0:
+            size_lat += stride - rem
+        return size_lat * latent_multiple
+
     def _prepare_condition_images(
         self,
         image: Image.Image | List[Image.Image] | None,
-        height: int,
-        width: int,
+        canvas: CanvasSpec,
     ):
         pipe = self.pipe
         if image is None:
@@ -450,24 +546,45 @@ class Flux2CanvasRunner:
         condition_images = []
         for img in image:
             pipe.image_processor.check_image_input(img)
+            source = img
+            if self.canvas_padding_mode != "none":
+                out_size = (canvas.output_width, canvas.output_height)
+                if source.size != out_size:
+                    source = ImageOps.fit(
+                        source,
+                        out_size,
+                        method=Image.Resampling.BICUBIC,
+                        centering=(0.5, 0.5),
+                    )
+                source = pad_rgb_image(
+                    source,
+                    pad_top=canvas.pad_top,
+                    pad_bottom=canvas.pad_bottom,
+                    pad_left=canvas.pad_left,
+                    pad_right=canvas.pad_right,
+                    mode=self.canvas_padding_mode,
+                    value=self.canvas_padding_value,
+                )
+
             img_tensor = pipe.image_processor.preprocess(
-                img,
-                height=height,
-                width=width,
+                source,
+                height=canvas.render_height,
+                width=canvas.render_width,
                 resize_mode="crop",
             )
             condition_images.append(img_tensor)
 
         return condition_images
 
-    def _resolve_canvas_size(
+    def _resolve_canvas_spec(
         self,
         input_image: Image.Image | List[Image.Image] | None,
         canvas_height: Optional[int],
         canvas_width: Optional[int],
-    ):
+    ) -> CanvasSpec:
         pipe = self.pipe
         multiple_of = pipe.vae_scale_factor * 2
+        latent_multiple = multiple_of
 
         if input_image is not None:
             base_image = input_image[0] if isinstance(input_image, list) else input_image
@@ -477,12 +594,63 @@ class Flux2CanvasRunner:
             default_h = pipe.default_sample_size * pipe.vae_scale_factor
             default_w = pipe.default_sample_size * pipe.vae_scale_factor
 
-        height = canvas_height if canvas_height is not None else default_h
-        width = canvas_width if canvas_width is not None else default_w
+        output_height = int(canvas_height) if canvas_height is not None else int(default_h)
+        output_width = int(canvas_width) if canvas_width is not None else int(default_w)
 
-        height = self._round_down_multiple(height, multiple_of)
-        width = self._round_down_multiple(width, multiple_of)
-        return height, width
+        if output_height <= 0 or output_width <= 0:
+            raise ValueError(f"Canvas size must be positive, got ({output_height}, {output_width}).")
+
+        if self.canvas_padding_mode == "none":
+            render_height = self._round_down_multiple(output_height, multiple_of)
+            render_width = self._round_down_multiple(output_width, multiple_of)
+            return CanvasSpec(
+                render_height=render_height,
+                render_width=render_width,
+                output_height=render_height,
+                output_width=render_width,
+                pad_top=0,
+                pad_bottom=0,
+                pad_left=0,
+                pad_right=0,
+            )
+
+        render_height = self._round_up_multiple(output_height, multiple_of)
+        render_width = self._round_up_multiple(output_width, multiple_of)
+
+        tile_h = max(1, self.tile_size_px // latent_multiple)
+        tile_w = max(1, self.tile_size_px // latent_multiple)
+        overlap_h = max(0, self.tile_overlap_px // latent_multiple)
+        overlap_w = max(0, self.tile_overlap_px // latent_multiple)
+        if overlap_h >= tile_h or overlap_w >= tile_w:
+            raise ValueError(
+                f"tile overlap is too large after latent conversion: "
+                f"tile=({tile_h},{tile_w}), overlap=({overlap_h},{overlap_w})"
+            )
+
+        render_height = self._align_size_to_tile_grid(render_height, latent_multiple, tile_h, overlap_h)
+        render_width = self._align_size_to_tile_grid(render_width, latent_multiple, tile_w, overlap_w)
+
+        pad_h = render_height - output_height
+        pad_w = render_width - output_width
+        if self.canvas_padding_position == "center":
+            pad_top = pad_h // 2
+            pad_left = pad_w // 2
+        else:
+            pad_top = 0
+            pad_left = 0
+        pad_bottom = pad_h - pad_top
+        pad_right = pad_w - pad_left
+
+        return CanvasSpec(
+            render_height=render_height,
+            render_width=render_width,
+            output_height=output_height,
+            output_width=output_width,
+            pad_top=pad_top,
+            pad_bottom=pad_bottom,
+            pad_left=pad_left,
+            pad_right=pad_right,
+        )
 
     @torch.no_grad()
     def _predict_noise_tiled(
@@ -640,7 +808,8 @@ class Flux2CanvasRunner:
         pipe._current_timestep = None
         pipe._interrupt = False
 
-        height, width = self._resolve_canvas_size(image, canvas_height, canvas_width)
+        canvas = self._resolve_canvas_spec(image, canvas_height, canvas_width)
+        height, width = canvas.render_height, canvas.render_width
 
         pipe.check_inputs(
             prompt=prompt,
@@ -682,7 +851,7 @@ class Flux2CanvasRunner:
                 text_encoder_out_layers=text_encoder_out_layers,
             )
 
-        condition_images = self._prepare_condition_images(image, height, width)
+        condition_images = self._prepare_condition_images(image, canvas)
 
         num_channels_latents = pipe.transformer.config.in_channels // 4
         latents_packed, latent_ids_full = pipe.prepare_latents(
@@ -778,7 +947,17 @@ class Flux2CanvasRunner:
         images = pipe.image_processor.postprocess(decoded, output_type="pil")
 
         pipe.maybe_free_model_hooks()
-        return images[0]
+        output_image = images[0]
+        if (
+            self.canvas_padding_mode != "none"
+            and (canvas.pad_top or canvas.pad_bottom or canvas.pad_left or canvas.pad_right)
+        ):
+            left = canvas.pad_left
+            top = canvas.pad_top
+            right = left + canvas.output_width
+            bottom = top + canvas.output_height
+            output_image = output_image.crop((left, top, right, bottom))
+        return output_image
 
 
 # -----------------------------
@@ -817,6 +996,9 @@ def run_canvas_tile_inference(
     tile_overlap_px: int,
     tile_batch_size: int,
     tile_sigma_ratio: float,
+    canvas_padding_mode: str,
+    canvas_padding_position: str,
+    canvas_padding_value: float,
 ):
     runner = Flux2CanvasRunner(
         pipe=pipeline,
@@ -824,6 +1006,9 @@ def run_canvas_tile_inference(
         tile_overlap_px=tile_overlap_px,
         tile_batch_size=tile_batch_size,
         sigma_ratio=tile_sigma_ratio,
+        canvas_padding_mode=canvas_padding_mode,
+        canvas_padding_position=canvas_padding_position,
+        canvas_padding_value=canvas_padding_value,
     )
     return runner.generate(
         image=condition_image,
@@ -933,6 +1118,9 @@ def main():
                 tile_overlap_px=args.tile_overlap_px,
                 tile_batch_size=args.tile_batch_size,
                 tile_sigma_ratio=args.tile_sigma_ratio,
+                canvas_padding_mode=args.canvas_padding_mode,
+                canvas_padding_position=args.canvas_padding_position,
+                canvas_padding_value=args.canvas_padding_value,
             )
         else:
             raise ValueError(f"Unknown mode: {args.mode}")

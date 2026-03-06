@@ -1,12 +1,12 @@
 {
   "pretrained_model_name_or_path": "/sr/code/sr/stage2/weights/flux2-klein-base-9b",
   "model_path": "/sr/code/sr/stage2/outputs/train/base_512/version_1",
-  "model_names": ["64, 128_2lr, 128_64, 128_128, 128_256, 256"],
+  "model_names": ["256"],
   "lora_weights": "checkpoint-25000",
 
-  "input_json": "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/result_test.json",
+  "input_json": "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/result_sample.json",
   
-  "output_dir": "/sr/code/sr/stage2/outputs/inference/base_512/version_1",
+  "output_dir": "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1",
   "output_path": "output_path",
   "evaluation_output_dir": "eval",
   "eval": true,
@@ -36,5 +36,5 @@
   "device": "cuda",
   "seed": 0,
   "cpu_offload": true,
-  "gpu_devices": "7"
+  "gpu_devices": "6"
 }
