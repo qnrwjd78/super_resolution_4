@@ -4,6 +4,7 @@ import logging
 import math
 import os
 import shutil
+import sys
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
@@ -1035,9 +1036,15 @@ def main(args):
                             try:
                                 from local_iqa import create_q_metric
                             except Exception as exc:
-                                raise RuntimeError(
-                                    "NR-IQA loss requested but `local_iqa` is not available in the runtime."
-                                ) from exc
+                                project_root = Path(__file__).resolve().parents[2]
+                                if str(project_root) not in sys.path:
+                                    sys.path.insert(0, str(project_root))
+                                try:
+                                    from local_iqa import create_q_metric
+                                except Exception as nested_exc:
+                                    raise RuntimeError(
+                                        "NR-IQA loss requested but `local_iqa` is not available in the runtime."
+                                    ) from nested_exc
 
                             q_metric_spec = create_q_metric(metric_name, device=accelerator.device)
                             args._q_metric = q_metric_spec.module
