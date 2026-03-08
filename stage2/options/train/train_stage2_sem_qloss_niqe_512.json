@@ -53,7 +53,7 @@
   "upcast_before_saving": false,
 
   "use_nr_iqa_loss": true,
-  "nr_iqa_metric": "l2",
+  "nr_iqa_metric": "niqe",
   "lambda_q": 1.0,
   "lambda_fm": 0.0,
   "q_sigma_max": 1.0,
