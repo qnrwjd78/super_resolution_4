@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STAGE2_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_DIR="$(cd "$STAGE2_DIR/.." && pwd)"
+export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
 DEFAULT_OPTIONS_JSON="$STAGE2_DIR/options/train.json"
 DEFAULT_PROMPTS_JSON="$STAGE2_DIR/prompts.json"
 OPTIONS_JSON="${OPTIONS_JSON:-$DEFAULT_OPTIONS_JSON}"

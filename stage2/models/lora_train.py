@@ -1077,7 +1077,29 @@ def main(args):
 
                             if isinstance(q_score, tuple):
                                 q_score = q_score[0]
-                            q_score = q_score.reshape(q_score.shape[0], -1).mean(dim=1)
+                            if not torch.is_tensor(q_score):
+                                q_score = torch.as_tensor(q_score, device=sr_hat.device, dtype=torch.float32)
+                            else:
+                                q_score = q_score.to(device=sr_hat.device, dtype=torch.float32)
+
+                            batch_size = sr_hat.shape[0]
+                            if q_score.ndim == 0:
+                                q_score = q_score.reshape(1).expand(batch_size)
+                            elif q_score.ndim == 1:
+                                if q_score.shape[0] == 1 and batch_size > 1:
+                                    q_score = q_score.expand(batch_size)
+                                elif q_score.shape[0] != batch_size:
+                                    raise ValueError(
+                                        f"Q-loss metric returned shape {tuple(q_score.shape)} for batch_size={batch_size}."
+                                    )
+                            else:
+                                q_score = q_score.reshape(q_score.shape[0], -1).mean(dim=1)
+                                if q_score.shape[0] == 1 and batch_size > 1:
+                                    q_score = q_score.expand(batch_size)
+                                elif q_score.shape[0] != batch_size:
+                                    raise ValueError(
+                                        f"Q-loss metric returned shape {tuple(q_score.shape)} for batch_size={batch_size}."
+                                    )
 
                             q_score = (q_score * q_mask).sum() / q_mask.sum().clamp_min(1.0)
                             # lower-better metrics should be minimized, higher-better metrics maximized.
