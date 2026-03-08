@@ -1,6 +1,6 @@
 {
   "model_path": "/sr/code/sr/stage2/weights/flux2-klein-base-9b",
-  "output_dir": "/sr/code/sr/stage2/outputs/train/sem_stage2_l2_512",
+  "output_dir": "/sr/code/sr/stage2/outputs/train/sem/maniqa",
   "prompts_json": "/sr/code/sr/stage2/prompts.json",
 
   "train_sem_only": true,
@@ -13,7 +13,7 @@
   "lora_weights_path": "",
   "logging_dir": "logs",
   "resume_from_checkpoint": "",
-  "checkpointing_steps": 2000,
+  "checkpointing_steps": 4000,
   "validation_epochs": 500,
 
   "gpu_devices": "2, 3",
@@ -53,7 +53,7 @@
   "upcast_before_saving": false,
 
   "use_nr_iqa_loss": true,
-  "nr_iqa_metric": "l2",
+  "nr_iqa_metric": "maniqa",
   "lambda_q": 1.0,
   "lambda_fm": 0.0,
   "q_sigma_max": 1.0,
@@ -88,8 +88,8 @@
   "num_validation_images": 4,
 
   "test_data_json": "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/result.json",
-  "test_name": "sem_stage2_l2_512",
-  "inference_output_dir": "/sr/output/sem_stage2_l2_512",
+  "test_name": "sem_stage2_maniqa_512",
+  "inference_output_dir": "/sr/output/sem_stage2_maniqa_512",
   "inference_mode": "plain",
   "inference_crop_mode": "random_crop",
   "inference_resolution": 512,
@@ -100,7 +100,7 @@
   "inference_seed": 0,
   "inference_cpu_offload": true,
 
-  "evaluation_output_dir": "/sr/output/sem_stage2_l2_512",
+  "evaluation_output_dir": "/sr/output/sem_stage2_maniqa_512",
   "evaluation_device": "auto",
   "evaluation_gpu_devices": "0",
   "evaluation_fr_resize": "to_ref"

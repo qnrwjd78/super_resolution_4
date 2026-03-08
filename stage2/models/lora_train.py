@@ -1009,55 +1009,47 @@ def main(args):
                     if q_loss_active:
                         if not hasattr(args, "_q_metric"):
                             metric_key = nr_iqa_metric_raw.strip().lower()
-                            if metric_key in {"l2", "mse", "l_2"}:
-                                args._q_metric = None
-                                args._q_metric_name = "l2"
-                                args._q_metric_lower_better = True
-                                args._q_metric_is_l2 = True
-                                logger.info("Q-loss metric enabled: L2 (reference MSE)")
-                            else:
-                                try:
-                                    import pyiqa
-                                except Exception as exc:
-                                    raise RuntimeError(
-                                        "NR-IQA loss requested but `pyiqa` is not available. "
-                                        "Install pyiqa in the training environment."
-                                    ) from exc
-
-                                metric_aliases = {
-                                    "niqe": "niqe",
-                                    "maniqa": "maniqa",
-                                    "musiq": "musiq",
-                                    "clip-iqa": "clipiqa",
-                                    "clip_iqa": "clipiqa",
-                                    "clipiqa": "clipiqa",
-                                }
-                                metric_name = metric_aliases.get(metric_key)
-                                if metric_name is None:
-                                    supported = "NIQE, ManIQA, MUSIQ, CLIP-IQA, L2"
-                                    raise ValueError(
-                                        f"Unsupported nr_iqa_metric='{nr_iqa_metric_raw}'. "
-                                        f"Supported labels: {supported}"
-                                    )
-
-                                q_metric = pyiqa.create_metric(
-                                    metric_name,
-                                    device=accelerator.device,
-                                    as_loss=True,
-                                    loss_reduction="none",
+                            metric_aliases = {
+                                "l2": "l2",
+                                "mse": "l2",
+                                "l_2": "l2",
+                                "niqe": "niqe",
+                                "maniqa": "maniqa",
+                                "musiq": "musiq",
+                            }
+                            clip_aliases = {"clip-iqa", "clip_iqa", "clipiqa"}
+                            if metric_key in clip_aliases:
+                                raise ValueError(
+                                    "nr_iqa_metric='clipiqa' is excluded in this trainer. "
+                                    "Use one of: L2, NIQE, ManIQA, MUSIQ."
                                 )
-                                q_metric.eval()
-                                for p in q_metric.parameters():
-                                    p.requires_grad_(False)
-                                args._q_metric = q_metric
-                                args._q_metric_name = metric_name
-                                args._q_metric_lower_better = bool(getattr(q_metric, "lower_better", False))
-                                args._q_metric_is_l2 = False
-                                logger.info(
-                                    "NR-IQA metric enabled: %s (lower_better=%s)",
-                                    args._q_metric_name,
-                                    args._q_metric_lower_better,
+
+                            metric_name = metric_aliases.get(metric_key)
+                            if metric_name is None:
+                                supported = "NIQE, ManIQA, MUSIQ, L2"
+                                raise ValueError(
+                                    f"Unsupported nr_iqa_metric='{nr_iqa_metric_raw}'. "
+                                    f"Supported labels: {supported}"
                                 )
+
+                            try:
+                                from local_iqa import create_q_metric
+                            except Exception as exc:
+                                raise RuntimeError(
+                                    "NR-IQA loss requested but `local_iqa` is not available in the runtime."
+                                ) from exc
+
+                            q_metric_spec = create_q_metric(metric_name, device=accelerator.device)
+                            args._q_metric = q_metric_spec.module
+                            args._q_metric_name = q_metric_spec.name
+                            args._q_metric_lower_better = bool(q_metric_spec.lower_better)
+                            args._q_metric_requires_reference = bool(q_metric_spec.requires_reference)
+                            logger.info(
+                                "Q-loss metric enabled (local_iqa): %s (lower_better=%s, requires_reference=%s)",
+                                args._q_metric_name,
+                                args._q_metric_lower_better,
+                                args._q_metric_requires_reference,
+                            )
 
                         sigma_per_sample = sigmas.reshape(sigmas.shape[0], -1)[:, 0]
                         q_mask = (sigma_per_sample <= q_sigma_max).float()
@@ -1070,16 +1062,15 @@ def main(args):
 
                             sr_hat = vae.decode(x0_hat.to(dtype=vae.dtype), return_dict=False)[0]
                             sr_hat = (sr_hat / 2 + 0.5).clamp(0, 1)
-
-                            if getattr(args, "_q_metric_is_l2", False):
-                                # pixel_values are normalized to [-1, 1]; align to [0, 1].
+                            if getattr(args, "_q_metric_requires_reference", False):
                                 target_pixels = (pixel_values / 2 + 0.5).clamp(0, 1)
-                                q_score = ((sr_hat.float() - target_pixels.float()) ** 2).reshape(sr_hat.shape[0], -1).mean(dim=1)
+                                q_score = args._q_metric(sr_hat.float(), target_pixels.float())
                             else:
                                 q_score = args._q_metric(sr_hat.float())
-                                if isinstance(q_score, tuple):
-                                    q_score = q_score[0]
-                                q_score = q_score.reshape(q_score.shape[0], -1).mean(dim=1)
+
+                            if isinstance(q_score, tuple):
+                                q_score = q_score[0]
+                            q_score = q_score.reshape(q_score.shape[0], -1).mean(dim=1)
 
                             q_score = (q_score * q_mask).sum() / q_mask.sum().clamp_min(1.0)
                             # lower-better metrics should be minimized, higher-better metrics maximized.

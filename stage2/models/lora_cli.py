@@ -315,7 +315,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--use_nr_iqa_loss",
         action="store_true",
-        help="Enable NR-IQA (MUSIQ) regularization on current-step x0 estimates.",
+        help="Enable Q-loss regularization on current-step x0 estimates using local_iqa metrics.",
     )
     parser.add_argument(
         "--lambda_q",
@@ -339,7 +339,7 @@ def parse_args(input_args=None):
         "--nr_iqa_metric",
         type=str,
         default="musiq",
-        help="Q-loss metric. Supported labels: NIQE, ManIQA, MUSIQ, CLIP-IQA, L2.",
+        help="Q-loss metric. Supported labels: NIQE, ManIQA, MUSIQ, L2. (CLIP-IQA excluded)",
     )
     parser.add_argument(
         "--optimizer",
