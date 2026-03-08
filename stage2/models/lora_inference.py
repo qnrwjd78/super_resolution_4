@@ -112,6 +112,42 @@ def parse_args():
         help="Optional directory containing saved LoRA weights to load before inference.",
     )
     parser.add_argument(
+        "--pix_lora_weights_path",
+        type=str,
+        default=None,
+        help="Optional directory containing the stage1 pixel LoRA weights.",
+    )
+    parser.add_argument(
+        "--sem_lora_weights_path",
+        type=str,
+        default=None,
+        help="Optional directory containing the stage2 semantic LoRA weights.",
+    )
+    parser.add_argument(
+        "--pix_adapter_name",
+        type=str,
+        default="pix",
+        help="Adapter name to use when loading `--pix_lora_weights_path`.",
+    )
+    parser.add_argument(
+        "--sem_adapter_name",
+        type=str,
+        default="sem",
+        help="Adapter name to use when loading `--sem_lora_weights_path`.",
+    )
+    parser.add_argument(
+        "--pix_adapter_scale",
+        type=float,
+        default=1.0,
+        help="Adapter scale for the pixel adapter.",
+    )
+    parser.add_argument(
+        "--sem_adapter_scale",
+        type=float,
+        default=1.0,
+        help="Adapter scale for the semantic adapter.",
+    )
+    parser.add_argument(
         "--prompts_json",
         type=str,
         default=str(DEFAULT_PROMPTS_PATH),
@@ -1021,6 +1057,45 @@ def run_canvas_tile_inference(
     )
 
 
+def _set_active_adapters_with_weights(pipeline: Flux2KleinPipeline, adapter_names: list[str], weights: list[float]) -> None:
+    if len(adapter_names) == 1 and hasattr(pipeline, "set_adapter"):
+        pipeline.set_adapter(adapter_names[0])
+        return
+
+    if hasattr(pipeline, "set_adapters"):
+        try:
+            pipeline.set_adapters(adapter_names, adapter_weights=weights)
+            return
+        except TypeError:
+            pipeline.set_adapters(adapter_names, weights)
+            return
+
+    raise RuntimeError(f"This pipeline runtime does not support multi-adapter composition: {adapter_names}")
+
+
+def load_requested_loras(pipeline: Flux2KleinPipeline, args) -> None:
+    loaded_adapter_names: list[str] = []
+    loaded_adapter_weights: list[float] = []
+
+    if args.pix_lora_weights_path:
+        pipeline.load_lora_weights(args.pix_lora_weights_path, adapter_name=args.pix_adapter_name)
+        loaded_adapter_names.append(args.pix_adapter_name)
+        loaded_adapter_weights.append(args.pix_adapter_scale)
+
+    if args.sem_lora_weights_path:
+        pipeline.load_lora_weights(args.sem_lora_weights_path, adapter_name=args.sem_adapter_name)
+        loaded_adapter_names.append(args.sem_adapter_name)
+        loaded_adapter_weights.append(args.sem_adapter_scale)
+
+    if args.lora_weights_path:
+        pipeline.load_lora_weights(args.lora_weights_path)
+        loaded_adapter_names.append("default")
+        loaded_adapter_weights.append(1.0)
+
+    if loaded_adapter_names:
+        _set_active_adapters_with_weights(pipeline, loaded_adapter_names, loaded_adapter_weights)
+
+
 # -----------------------------
 # Main
 # -----------------------------
@@ -1058,9 +1133,7 @@ def main():
         variant=args.variant,
         torch_dtype=torch_dtype,
     )
-
-    if args.lora_weights_path:
-        pipeline.load_lora_weights(args.lora_weights_path)
+    load_requested_loras(pipeline, args)
 
     if args.cpu_offload and args.device.startswith("cuda"):
         pipeline.enable_model_cpu_offload()

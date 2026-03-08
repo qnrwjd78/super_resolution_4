@@ -144,6 +144,81 @@ def build_inference_timestep_pool(
     return timesteps, sigma_pool
 
 
+def add_lora_adapter(model: torch.nn.Module, adapter_config: LoraConfig, adapter_name: str) -> None:
+    try:
+        model.add_adapter(adapter_config, adapter_name=adapter_name)
+        return
+    except TypeError:
+        pass
+
+    try:
+        model.add_adapter(adapter_name, adapter_config)
+        return
+    except TypeError:
+        if adapter_name != "default":
+            raise
+        model.add_adapter(adapter_config)
+
+
+def set_active_lora_adapters(
+    model: torch.nn.Module, adapter_names: list[str], adapter_weights: list[float] | None = None
+) -> None:
+    if len(adapter_names) == 1 and hasattr(model, "set_adapter"):
+        model.set_adapter(adapter_names[0])
+        return
+
+    if hasattr(model, "set_adapters"):
+        try:
+            if adapter_weights is None:
+                model.set_adapters(adapter_names)
+            else:
+                model.set_adapters(adapter_names, adapter_weights=adapter_weights)
+            return
+        except TypeError:
+            if adapter_weights is None:
+                model.set_adapters(adapter_names)
+            else:
+                model.set_adapters(adapter_names, adapter_weights)
+            return
+
+    if hasattr(model, "set_adapter"):
+        try:
+            model.set_adapter(adapter_names)
+            return
+        except Exception:
+            pass
+
+    raise RuntimeError(f"This model does not support setting multiple active adapters: {adapter_names}.")
+
+
+def set_adapter_requires_grad(model: torch.nn.Module, adapter_name: str, requires_grad: bool) -> int:
+    marker = f".{adapter_name}."
+    matched = 0
+    for name, param in model.named_parameters():
+        if "lora_" not in name:
+            continue
+        if marker in name:
+            param.requires_grad_(requires_grad)
+            matched += 1
+
+    if matched == 0:
+        logger.warning("No LoRA parameters found for adapter '%s'.", adapter_name)
+    return matched
+
+
+def get_adapter_peft_state_dict(model: torch.nn.Module, adapter_name: str, state_dict: dict[str, Any] | None = None):
+    peft_kwargs: dict[str, Any] = {}
+    if state_dict is not None:
+        peft_kwargs["state_dict"] = state_dict
+
+    try:
+        return get_peft_model_state_dict(model, adapter_name=adapter_name, **peft_kwargs)
+    except TypeError:
+        if adapter_name != "default":
+            raise
+        return get_peft_model_state_dict(model, **peft_kwargs)
+
+
 def main(args):
     if args.report_to == "wandb" and args.hub_token is not None:
         raise ValueError(
@@ -196,6 +271,27 @@ def main(args):
     # If passed along, set the training seed now.
     if args.seed is not None:
         set_seed(args.seed)
+
+    sem_stage2_mode = bool(getattr(args, "train_sem_only", False))
+    pix_adapter_name = args.pix_adapter_name if sem_stage2_mode else "default"
+    sem_adapter_name = args.sem_adapter_name if sem_stage2_mode else None
+    trainable_adapter_name = sem_adapter_name if sem_stage2_mode else "default"
+    pix_lora_source = None
+
+    if sem_stage2_mode:
+        pix_lora_source = args.pix_lora_weights_path or args.lora_weights_path
+        if not pix_lora_source:
+            raise ValueError(
+                "Stage2 sem-only mode requires an existing pixel LoRA path via `--pix_lora_weights_path` "
+                "(or legacy `--lora_weights_path`)."
+            )
+        if not args.use_nr_iqa_loss or args.lambda_q == 0.0:
+            raise ValueError(
+                "`--train_sem_only` requires Q-loss to be active. Set `--use_nr_iqa_loss` and `--lambda_q > 0`."
+            )
+        if args.lambda_fm != 0.0:
+            logger.info("Stage2 sem-only mode overrides lambda_fm from %.6f to 0.0.", args.lambda_fm)
+            args.lambda_fm = 0.0
 
     if args.cache_latents:
         logger.warning("Ignoring --cache_latents because random patch sampling changes the input crop every step.")
@@ -333,17 +429,19 @@ def main(args):
         init_lora_weights="gaussian",
         target_modules=target_modules,
     )
-    transformer.add_adapter(transformer_lora_config)
+    if sem_stage2_mode:
+        add_lora_adapter(transformer, transformer_lora_config, adapter_name=pix_adapter_name)
+        add_lora_adapter(transformer, transformer_lora_config, adapter_name=sem_adapter_name)
+    else:
+        add_lora_adapter(transformer, transformer_lora_config, adapter_name="default")
 
-    def load_lora_into_transformer(transformer_model, input_dir):
+    def load_lora_into_transformer(transformer_model, input_dir, adapter_name="default"):
         lora_state_dict = Flux2KleinPipeline.lora_state_dict(input_dir)
         transformer_state_dict = {
             f"{k.replace('transformer.', '')}": v for k, v in lora_state_dict.items() if k.startswith("transformer.")
         }
         transformer_state_dict = convert_unet_state_dict_to_peft(transformer_state_dict)
-        incompatible_keys = set_peft_model_state_dict(
-            transformer_model, transformer_state_dict, adapter_name="default"
-        )
+        incompatible_keys = set_peft_model_state_dict(transformer_model, transformer_state_dict, adapter_name=adapter_name)
         if incompatible_keys is not None:
             unexpected_keys = getattr(incompatible_keys, "unexpected_keys", None)
             if unexpected_keys:
@@ -353,9 +451,31 @@ def main(args):
                 )
         return incompatible_keys
 
-    if args.lora_weights_path:
+    if sem_stage2_mode:
+        logger.info("Loading frozen pix LoRA from %s", pix_lora_source)
+        load_lora_into_transformer(transformer, pix_lora_source, adapter_name=pix_adapter_name)
+
+        if args.sem_lora_weights_path:
+            logger.info("Loading initial sem LoRA weights from %s", args.sem_lora_weights_path)
+            load_lora_into_transformer(transformer, args.sem_lora_weights_path, adapter_name=sem_adapter_name)
+
+        set_active_lora_adapters(
+            transformer,
+            [pix_adapter_name, sem_adapter_name],
+            [args.pix_adapter_scale, args.sem_adapter_scale],
+        )
+        pix_param_count = set_adapter_requires_grad(transformer, pix_adapter_name, False)
+        sem_param_count = set_adapter_requires_grad(transformer, sem_adapter_name, True)
+        logger.info(
+            "Stage2 sem-only mode active: pix adapter '%s' frozen (%d params), sem adapter '%s' trainable (%d params).",
+            pix_adapter_name,
+            pix_param_count,
+            sem_adapter_name,
+            sem_param_count,
+        )
+    elif args.lora_weights_path:
         logger.info(f"Loading initial LoRA weights from {args.lora_weights_path}")
-        load_lora_into_transformer(transformer, args.lora_weights_path)
+        load_lora_into_transformer(transformer, args.lora_weights_path, adapter_name="default")
 
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
@@ -386,13 +506,10 @@ def main(args):
         # 3) Only main process materializes the LoRA state dict
         transformer_lora_layers_to_save = None
         if accelerator.is_main_process:
-            peft_kwargs = {}
-            if is_fsdp:
-                peft_kwargs["state_dict"] = state_dict
-
-            transformer_lora_layers_to_save = get_peft_model_state_dict(
+            transformer_lora_layers_to_save = get_adapter_peft_state_dict(
                 unwrap_model(transformer_model) if is_fsdp else transformer_model,
-                **peft_kwargs,
+                adapter_name=trainable_adapter_name,
+                state_dict=state_dict,
             )
 
             if is_fsdp:
@@ -424,9 +541,29 @@ def main(args):
                 args.pretrained_model_name_or_path,
                 subfolder="transformer",
             )
-            transformer_.add_adapter(transformer_lora_config)
+            if sem_stage2_mode:
+                add_lora_adapter(transformer_, transformer_lora_config, adapter_name=pix_adapter_name)
+                add_lora_adapter(transformer_, transformer_lora_config, adapter_name=sem_adapter_name)
+                load_lora_into_transformer(transformer_, pix_lora_source, adapter_name=pix_adapter_name)
+                set_active_lora_adapters(
+                    transformer_,
+                    [pix_adapter_name, sem_adapter_name],
+                    [args.pix_adapter_scale, args.sem_adapter_scale],
+                )
+                set_adapter_requires_grad(transformer_, pix_adapter_name, False)
+                set_adapter_requires_grad(transformer_, sem_adapter_name, True)
+            else:
+                add_lora_adapter(transformer_, transformer_lora_config, adapter_name="default")
 
-        load_lora_into_transformer(transformer_, input_dir)
+        load_lora_into_transformer(transformer_, input_dir, adapter_name=trainable_adapter_name)
+        if sem_stage2_mode:
+            set_active_lora_adapters(
+                transformer_,
+                [pix_adapter_name, sem_adapter_name],
+                [args.pix_adapter_scale, args.sem_adapter_scale],
+            )
+            set_adapter_requires_grad(transformer_, pix_adapter_name, False)
+            set_adapter_requires_grad(transformer_, sem_adapter_name, True)
 
         # Make sure the trainable params are in float32. This is again needed since the base models
         # are in `weight_dtype`. More details:
@@ -611,6 +748,16 @@ def main(args):
     transformer, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         transformer, optimizer, train_dataloader, lr_scheduler
     )
+    if sem_stage2_mode:
+        unwrapped_transformer = unwrap_model(transformer)
+        set_active_lora_adapters(
+            unwrapped_transformer,
+            [pix_adapter_name, sem_adapter_name],
+            [args.pix_adapter_scale, args.sem_adapter_scale],
+        )
+        set_adapter_requires_grad(unwrapped_transformer, pix_adapter_name, False)
+        set_adapter_requires_grad(unwrapped_transformer, sem_adapter_name, True)
+
     transformer_guidance_embeds = bool(getattr(unwrap_model(transformer).config, "guidance_embeds", False))
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
@@ -1033,8 +1180,9 @@ def main(args):
                         k: v.to(weight_dtype) if isinstance(v, torch.Tensor) else v for k, v in state_dict.items()
                     }
 
-            transformer_lora_layers = get_peft_model_state_dict(
+            transformer_lora_layers = get_adapter_peft_state_dict(
                 transformer,
+                adapter_name=trainable_adapter_name,
                 state_dict=state_dict,
             )
             transformer_lora_layers = {
@@ -1049,7 +1197,9 @@ def main(args):
                     transformer.to(torch.float32)
                 else:
                     transformer = transformer.to(weight_dtype)
-            transformer_lora_layers = get_peft_model_state_dict(transformer)
+            transformer_lora_layers = get_adapter_peft_state_dict(
+                transformer, adapter_name=trainable_adapter_name
+            )
 
         modules_to_save["transformer"] = transformer
 
@@ -1070,7 +1220,16 @@ def main(args):
                 torch_dtype=weight_dtype,
             )
             # load attention processors
-            pipeline.load_lora_weights(args.output_dir)
+            if sem_stage2_mode:
+                pipeline.load_lora_weights(pix_lora_source, adapter_name=pix_adapter_name)
+                pipeline.load_lora_weights(args.output_dir, adapter_name=sem_adapter_name)
+                set_active_lora_adapters(
+                    pipeline,
+                    [pix_adapter_name, sem_adapter_name],
+                    [args.pix_adapter_scale, args.sem_adapter_scale],
+                )
+            else:
+                pipeline.load_lora_weights(args.output_dir)
 
             # run inference
             images = []

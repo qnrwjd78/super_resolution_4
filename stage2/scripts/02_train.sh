@@ -268,6 +268,7 @@ store_true_keys = {
     "enable_npu_flash_attention",
     "fsdp_text_encoder",
     "use_nr_iqa_loss",
+    "train_sem_only",
 }
 
 bool_value_keys = {

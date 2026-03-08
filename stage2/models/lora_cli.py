@@ -45,6 +45,50 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
+        "--train_sem_only",
+        action="store_true",
+        help=(
+            "Enable stage2 semantic LoRA training mode. In this mode, the existing pixel LoRA is frozen and only the "
+            "semantic LoRA adapter is optimized using Q-loss."
+        ),
+    )
+    parser.add_argument(
+        "--pix_lora_weights_path",
+        type=str,
+        default=None,
+        help="Path to an existing stage1 pixel LoRA to load into the frozen `pix` adapter in stage2 mode.",
+    )
+    parser.add_argument(
+        "--sem_lora_weights_path",
+        type=str,
+        default=None,
+        help="Optional path to initialize the trainable `sem` adapter before stage2 training.",
+    )
+    parser.add_argument(
+        "--pix_adapter_name",
+        type=str,
+        default="pix",
+        help="Adapter name used for the frozen pixel LoRA in stage2 mode.",
+    )
+    parser.add_argument(
+        "--sem_adapter_name",
+        type=str,
+        default="sem",
+        help="Adapter name used for the trainable semantic LoRA in stage2 mode.",
+    )
+    parser.add_argument(
+        "--pix_adapter_scale",
+        type=float,
+        default=1.0,
+        help="Runtime adapter scale used for the frozen `pix` adapter in stage2 mode.",
+    )
+    parser.add_argument(
+        "--sem_adapter_scale",
+        type=float,
+        default=1.0,
+        help="Runtime adapter scale used for the trainable `sem` adapter in stage2 mode.",
+    )
+    parser.add_argument(
         "--train_data_json",
         type=str,
         required=True,
@@ -436,6 +480,15 @@ def parse_args(input_args=None):
 
     if args.resolution <= 0:
         raise ValueError("`--resolution` must be a positive integer.")
+
+    if args.train_sem_only:
+        if args.pix_adapter_name == args.sem_adapter_name:
+            raise ValueError("`--pix_adapter_name` and `--sem_adapter_name` must be different.")
+
+        if args.pix_lora_weights_path is None and args.lora_weights_path is None:
+            raise ValueError(
+                "Stage2 mode requires an existing pixel LoRA. Set `--pix_lora_weights_path` (or legacy `--lora_weights_path`)."
+            )
 
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:
