@@ -1,0 +1,36 @@
+% Requires: \usepackage{booktabs,graphicx}
+\begin{table*}[t]
+  \centering
+  \setlength{\tabcolsep}{4.4pt}
+  \renewcommand{\arraystretch}{1.12}
+  \small
+  \caption{Mean evaluation metrics across checkpoints.}
+  \label{tab:mean-metrics}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{lcccccccc}
+    \toprule
+    Method & \multicolumn{4}{c}{No-reference} & \multicolumn{2}{c}{Full-reference} & \multicolumn{2}{c}{Restoration} \\
+    \cmidrule(lr){2-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+    & NIQE $\downarrow$ & MANIQA $\uparrow$ & MUSIQ $\uparrow$ & CLIPIQA $\uparrow$ & LPIPS $\downarrow$ & DISTS $\downarrow$ & PSNR $\uparrow$ & SSIM $\uparrow$ \\
+    \midrule
+    \multicolumn{9}{l}{\textit{512}} \\
+    512\_128\_128 & 4.6669 & 0.3962 & 63.5878 & 0.6618 & 0.1573 & 0.1035 & 26.7657 & 0.7273 \\
+    512\_128\_256 & \textbf{4.1124} & 0.3846 & \textbf{65.1369} & 0.6471 & \textbf{0.1225} & \textbf{0.0753} & 27.5779 & 0.7639 \\
+    512\_128\_64 & 4.5562 & 0.3935 & 63.5244 & \underline{0.6620} & 0.1672 & 0.1066 & 26.5642 & 0.7170 \\
+    512\_256 & 4.5063 & \underline{0.4028} & 64.3150 & \textbf{0.6679} & 0.1538 & 0.0982 & 26.8382 & 0.7249 \\
+    512\_64 & 5.0186 & \textbf{0.4032} & 63.5432 & 0.6574 & 0.1614 & 0.1129 & 26.6520 & 0.7168 \\
+    512\_l2 & 5.4362 & 0.3588 & 59.9519 & 0.4826 & 0.2470 & 0.1292 & \underline{31.7195} & \textbf{0.8648} \\
+    512\_l2\_both & 5.4362 & 0.3588 & 59.9519 & 0.4826 & 0.2470 & 0.1292 & \underline{31.7195} & \textbf{0.8648} \\
+    \midrule
+    \multicolumn{9}{l}{\textit{768}} \\
+    768\_128 & 4.5004 & 0.3657 & 62.7807 & 0.6239 & \underline{0.1407} & \underline{0.0922} & 27.1232 & 0.7417 \\
+    \midrule
+    \multicolumn{9}{l}{\textit{hat}} \\
+    hat\_l & 5.5695 & 0.3637 & 60.6796 & 0.5165 & 0.2443 & 0.1283 & \textbf{32.4629} & \underline{0.8604} \\
+    hat\_real\_sharper & \underline{4.1237} & 0.3680 & \underline{64.8633} & 0.5379 & 0.2037 & 0.1116 & 28.1205 & 0.7873 \\
+    \bottomrule
+  \end{tabular}%
+  }
+  \vspace{2pt}
+  \footnotesize{\textbf{Best} in bold, \underline{second-best} underlined.}
+\end{table*}

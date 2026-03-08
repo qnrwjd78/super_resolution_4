@@ -1,0 +1,498 @@
+{
+    "num_items":  30,
+    "device":  "cuda",
+    "mean":  {
+                 "clipiqa":  0.51645853171745937,
+                 "dists":  0.12825361688931783,
+                 "lpips":  0.24425482712686061,
+                 "maniqa":  0.36371647516886391,
+                 "musiq":  60.679562886555992,
+                 "niqe":  5.569491036732992,
+                 "psnr":  32.462898477366082,
+                 "ssim":  0.86037995219230656
+             },
+    "per_image":  [
+                      {
+                          "index":  0,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0801x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0801.png",
+                          "scores":  {
+                                         "niqe":  6.040184020996094,
+                                         "maniqa":  0.27290576696395874,
+                                         "musiq":  60.33348846435547,
+                                         "clipiqa":  0.43123099207878113,
+                                         "lpips":  0.24069179594516754,
+                                         "dists":  0.09731203317642212,
+                                         "ssim":  0.8786399960517883,
+                                         "psnr":  31.494246932991743
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  1,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0802x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0802.png",
+                          "scores":  {
+                                         "niqe":  7.1405816078186035,
+                                         "maniqa":  0.46204864978790283,
+                                         "musiq":  65.18891143798828,
+                                         "clipiqa":  0.7155812382698059,
+                                         "lpips":  0.1111389622092247,
+                                         "dists":  0.08687567710876465,
+                                         "ssim":  0.926074206829071,
+                                         "psnr":  37.74369309857392
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  2,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0803x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0803.png",
+                          "scores":  {
+                                         "niqe":  6.177058219909668,
+                                         "maniqa":  0.44191354513168335,
+                                         "musiq":  70.60594940185547,
+                                         "clipiqa":  0.6714438796043396,
+                                         "lpips":  0.06539421528577805,
+                                         "dists":  0.07373100519180298,
+                                         "ssim":  0.9851917028427124,
+                                         "psnr":  44.82922680616909
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  3,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0804x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0804.png",
+                          "scores":  {
+                                         "niqe":  4.267321586608887,
+                                         "maniqa":  0.37739062309265137,
+                                         "musiq":  67.11911010742188,
+                                         "clipiqa":  0.5159978866577148,
+                                         "lpips":  0.24036213755607605,
+                                         "dists":  0.0934593677520752,
+                                         "ssim":  0.8429484963417053,
+                                         "psnr":  30.08845823562474
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  4,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0805x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0805.png",
+                          "scores":  {
+                                         "niqe":  6.475192070007324,
+                                         "maniqa":  0.24477191269397736,
+                                         "musiq":  56.94856262207031,
+                                         "clipiqa":  0.48507341742515564,
+                                         "lpips":  0.45521143078804016,
+                                         "dists":  0.21892136335372925,
+                                         "ssim":  0.8055156469345093,
+                                         "psnr":  30.085018222067852
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  5,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0806x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0806.png",
+                          "scores":  {
+                                         "niqe":  4.371989727020264,
+                                         "maniqa":  0.43079501390457153,
+                                         "musiq":  64.05543518066406,
+                                         "clipiqa":  0.6252961158752441,
+                                         "lpips":  0.15919481217861176,
+                                         "dists":  0.11180007457733154,
+                                         "ssim":  0.9032066464424133,
+                                         "psnr":  31.7570171555706
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  6,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0807x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0807.png",
+                          "scores":  {
+                                         "niqe":  4.119737148284912,
+                                         "maniqa":  0.4129185378551483,
+                                         "musiq":  66.6294937133789,
+                                         "clipiqa":  0.641735851764679,
+                                         "lpips":  0.4369974434375763,
+                                         "dists":  0.19531112909317017,
+                                         "ssim":  0.580987811088562,
+                                         "psnr":  22.11755842331131
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  7,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0808x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0808.png",
+                          "scores":  {
+                                         "niqe":  5.0701823234558105,
+                                         "maniqa":  0.3978589177131653,
+                                         "musiq":  55.29808807373047,
+                                         "clipiqa":  0.5617023706436157,
+                                         "lpips":  0.2580122947692871,
+                                         "dists":  0.15476906299591064,
+                                         "ssim":  0.8339993357658386,
+                                         "psnr":  28.61184171880715
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  8,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0809x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0809.png",
+                          "scores":  {
+                                         "niqe":  6.2822089195251465,
+                                         "maniqa":  0.27493155002593994,
+                                         "musiq":  56.83967590332031,
+                                         "clipiqa":  0.476161390542984,
+                                         "lpips":  0.21811965107917786,
+                                         "dists":  0.095755934715271,
+                                         "ssim":  0.8876541256904602,
+                                         "psnr":  34.17055787737169
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  9,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0810x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0810.png",
+                          "scores":  {
+                                         "niqe":  5.052806377410889,
+                                         "maniqa":  0.347390741109848,
+                                         "musiq":  59.146728515625,
+                                         "clipiqa":  0.6074910163879395,
+                                         "lpips":  0.35572898387908936,
+                                         "dists":  0.13443875312805176,
+                                         "ssim":  0.8195672035217285,
+                                         "psnr":  28.380447688949427
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  10,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0812x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0812.png",
+                          "scores":  {
+                                         "niqe":  4.45487117767334,
+                                         "maniqa":  0.3974425494670868,
+                                         "musiq":  62.24674606323242,
+                                         "clipiqa":  0.48758435249328613,
+                                         "lpips":  0.22390791773796082,
+                                         "dists":  0.12385350465774536,
+                                         "ssim":  0.861743152141571,
+                                         "psnr":  30.329745050736534
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  11,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0813x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0813.png",
+                          "scores":  {
+                                         "niqe":  5.274322032928467,
+                                         "maniqa":  0.34393465518951416,
+                                         "musiq":  59.31199645996094,
+                                         "clipiqa":  0.5103116631507874,
+                                         "lpips":  0.22696241736412048,
+                                         "dists":  0.07203549146652222,
+                                         "ssim":  0.906089186668396,
+                                         "psnr":  33.416724445970296
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  12,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0822x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0822.png",
+                          "scores":  {
+                                         "niqe":  5.067348957061768,
+                                         "maniqa":  0.39879193902015686,
+                                         "musiq":  69.8931655883789,
+                                         "clipiqa":  0.5169039368629456,
+                                         "lpips":  0.15103282034397125,
+                                         "dists":  0.0937013030052185,
+                                         "ssim":  0.9010729789733887,
+                                         "psnr":  32.840353320743176
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  13,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0827x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0827.png",
+                          "scores":  {
+                                         "niqe":  5.908452033996582,
+                                         "maniqa":  0.2482130378484726,
+                                         "musiq":  54.880836486816406,
+                                         "clipiqa":  0.2631970942020416,
+                                         "lpips":  0.30400896072387695,
+                                         "dists":  0.1321285367012024,
+                                         "ssim":  0.9156432747840881,
+                                         "psnr":  36.202414790250714
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  14,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0830x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0830.png",
+                          "scores":  {
+                                         "niqe":  5.012027263641357,
+                                         "maniqa":  0.43249332904815674,
+                                         "musiq":  61.372154235839844,
+                                         "clipiqa":  0.42060279846191406,
+                                         "lpips":  0.2677222490310669,
+                                         "dists":  0.19239604473114014,
+                                         "ssim":  0.7787437438964844,
+                                         "psnr":  26.70646643146582
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  15,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0836x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0836.png",
+                          "scores":  {
+                                         "niqe":  4.854721546173096,
+                                         "maniqa":  0.4228898882865906,
+                                         "musiq":  66.58511352539062,
+                                         "clipiqa":  0.344286173582077,
+                                         "lpips":  0.15220412611961365,
+                                         "dists":  0.12030839920043945,
+                                         "ssim":  0.8583350777626038,
+                                         "psnr":  28.64450832692952
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  16,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0843x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0843.png",
+                          "scores":  {
+                                         "niqe":  8.29483413696289,
+                                         "maniqa":  0.3707852363586426,
+                                         "musiq":  56.644493103027344,
+                                         "clipiqa":  0.7064836025238037,
+                                         "lpips":  0.051564306020736694,
+                                         "dists":  0.11589717864990234,
+                                         "ssim":  0.9860508441925049,
+                                         "psnr":  44.29693252561648
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  17,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0844x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0844.png",
+                          "scores":  {
+                                         "niqe":  7.137337684631348,
+                                         "maniqa":  0.37076640129089355,
+                                         "musiq":  55.86548614501953,
+                                         "clipiqa":  0.6399070620536804,
+                                         "lpips":  0.028281699866056442,
+                                         "dists":  0.05079144239425659,
+                                         "ssim":  0.992883026599884,
+                                         "psnr":  48.58689951334575
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  18,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0847x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0847.png",
+                          "scores":  {
+                                         "niqe":  4.159312725067139,
+                                         "maniqa":  0.3701847493648529,
+                                         "musiq":  67.62178802490234,
+                                         "clipiqa":  0.44450879096984863,
+                                         "lpips":  0.17479804158210754,
+                                         "dists":  0.06535947322845459,
+                                         "ssim":  0.8814803957939148,
+                                         "psnr":  30.754379252756955
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  19,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0857x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0857.png",
+                          "scores":  {
+                                         "niqe":  8.232224464416504,
+                                         "maniqa":  0.30148324370384216,
+                                         "musiq":  46.20638656616211,
+                                         "clipiqa":  0.603142261505127,
+                                         "lpips":  0.6225531697273254,
+                                         "dists":  0.2156251072883606,
+                                         "ssim":  0.8352624773979187,
+                                         "psnr":  36.535337240612236
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  20,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0860x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0860.png",
+                          "scores":  {
+                                         "niqe":  4.4584760665893555,
+                                         "maniqa":  0.30571287870407104,
+                                         "musiq":  61.753231048583984,
+                                         "clipiqa":  0.5014488101005554,
+                                         "lpips":  0.40208524465560913,
+                                         "dists":  0.12483692169189453,
+                                         "ssim":  0.667682409286499,
+                                         "psnr":  22.281818361086472
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  21,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0865x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0865.png",
+                          "scores":  {
+                                         "niqe":  5.258415222167969,
+                                         "maniqa":  0.4017314910888672,
+                                         "musiq":  57.98727035522461,
+                                         "clipiqa":  0.36460691690444946,
+                                         "lpips":  0.3652641773223877,
+                                         "dists":  0.17967039346694946,
+                                         "ssim":  0.797146737575531,
+                                         "psnr":  29.06697292812983
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  22,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0868x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0868.png",
+                          "scores":  {
+                                         "niqe":  6.170680999755859,
+                                         "maniqa":  0.42497771978378296,
+                                         "musiq":  62.90744400024414,
+                                         "clipiqa":  0.734180212020874,
+                                         "lpips":  0.04765152186155319,
+                                         "dists":  0.1102142333984375,
+                                         "ssim":  0.9673175811767578,
+                                         "psnr":  34.91669876645575
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  23,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0875x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0875.png",
+                          "scores":  {
+                                         "niqe":  4.890096664428711,
+                                         "maniqa":  0.39344725012779236,
+                                         "musiq":  54.632286071777344,
+                                         "clipiqa":  0.20233102142810822,
+                                         "lpips":  0.31234049797058105,
+                                         "dists":  0.17890393733978271,
+                                         "ssim":  0.7170687913894653,
+                                         "psnr":  26.104760082175652
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  24,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0880x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0880.png",
+                          "scores":  {
+                                         "niqe":  5.963013648986816,
+                                         "maniqa":  0.3868122100830078,
+                                         "musiq":  62.61967468261719,
+                                         "clipiqa":  0.6111610531806946,
+                                         "lpips":  0.15988828241825104,
+                                         "dists":  0.13785147666931152,
+                                         "ssim":  0.9187186360359192,
+                                         "psnr":  33.970044111575554
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  25,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0888x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0888.png",
+                          "scores":  {
+                                         "niqe":  5.164669513702393,
+                                         "maniqa":  0.2752007842063904,
+                                         "musiq":  58.2713623046875,
+                                         "clipiqa":  0.3447907865047455,
+                                         "lpips":  0.16925401985645294,
+                                         "dists":  0.06940197944641113,
+                                         "ssim":  0.9126433730125427,
+                                         "psnr":  33.00417647318574
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  26,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0893x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0893.png",
+                          "scores":  {
+                                         "niqe":  6.074138641357422,
+                                         "maniqa":  0.2834145724773407,
+                                         "musiq":  51.7361946105957,
+                                         "clipiqa":  0.41707202792167664,
+                                         "lpips":  0.44551435112953186,
+                                         "dists":  0.14934039115905762,
+                                         "ssim":  0.8565968871116638,
+                                         "psnr":  35.26612525041049
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  27,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0897x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0897.png",
+                          "scores":  {
+                                         "niqe":  5.1166462898254395,
+                                         "maniqa":  0.348147451877594,
+                                         "musiq":  53.249671936035156,
+                                         "clipiqa":  0.5699310898780823,
+                                         "lpips":  0.28088653087615967,
+                                         "dists":  0.2533537745475769,
+                                         "ssim":  0.7514063119888306,
+                                         "psnr":  23.652366053510725
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  28,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0898x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0898.png",
+                          "scores":  {
+                                         "niqe":  6.089694499969482,
+                                         "maniqa":  0.40346893668174744,
+                                         "musiq":  68.58126068115234,
+                                         "clipiqa":  0.7200347781181335,
+                                         "lpips":  0.24663689732551575,
+                                         "dists":  0.11118811368942261,
+                                         "ssim":  0.9374855756759644,
+                                         "psnr":  37.13287300693579
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  29,
+                          "res":  "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/0900x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0900.png",
+                          "scores":  {
+                                         "niqe":  4.506185531616211,
+                                         "maniqa":  0.36867067217826843,
+                                         "musiq":  65.8548812866211,
+                                         "clipiqa":  0.3595573604106903,
+                                         "lpips":  0.1542358547449112,
+                                         "dists":  0.08837640285491943,
+                                         "ssim":  0.9042429327964783,
+                                         "psnr":  30.899292229651493
+                                     },
+                          "error":  null
+                      }
+                  ],
+    "note":  "If hr exists, FR metrics (lpips,dists) are computed. NR metrics (niqe,maniqa,musiq,clipiqa) are always computed on res. If sizes differ for FR, res is resized to hr when fr_resize=to_ref.\nRestoration metrics are computed on Y channel with crop_border=scale."
+}
+

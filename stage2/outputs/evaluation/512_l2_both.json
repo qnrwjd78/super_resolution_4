@@ -1,0 +1,354 @@
+{
+    "num_items":  21,
+    "device":  "mixed",
+    "mean":  {
+                 "clipiqa":  0.48263238938081832,
+                 "dists":  0.12915169908886864,
+                 "lpips":  0.24699965562848819,
+                 "maniqa":  0.35884288379124235,
+                 "musiq":  59.9518670581636,
+                 "niqe":  5.4361540249415805,
+                 "psnr":  31.719492002812778,
+                 "ssim":  0.86483729169482282
+             },
+    "per_image":  [
+                      {
+                          "index":  0,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0804x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0804.png",
+                          "scores":  {
+                                         "niqe":  4.226361274719238,
+                                         "maniqa":  0.3666408061981201,
+                                         "musiq":  67.34622955322266,
+                                         "clipiqa":  0.5484285950660706,
+                                         "lpips":  0.24343502521514893,
+                                         "dists":  0.09296602010726929,
+                                         "ssim":  0.8413405418395996,
+                                         "psnr":  29.71575100981889
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  1,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0812x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0812.png",
+                          "scores":  {
+                                         "niqe":  4.532715797424316,
+                                         "maniqa":  0.39088934659957886,
+                                         "musiq":  61.965667724609375,
+                                         "clipiqa":  0.4798052906990051,
+                                         "lpips":  0.23146939277648926,
+                                         "dists":  0.12399256229400635,
+                                         "ssim":  0.8603892922401428,
+                                         "psnr":  29.991888111091527
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  2,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0813x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0813.png",
+                          "scores":  {
+                                         "niqe":  5.166283130645752,
+                                         "maniqa":  0.33593207597732544,
+                                         "musiq":  59.65172576904297,
+                                         "clipiqa":  0.5128855109214783,
+                                         "lpips":  0.2318117618560791,
+                                         "dists":  0.07270735502243042,
+                                         "ssim":  0.9044545888900757,
+                                         "psnr":  32.784130911087615
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  3,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0822x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0822.png",
+                          "scores":  {
+                                         "niqe":  5.054819583892822,
+                                         "maniqa":  0.41082364320755005,
+                                         "musiq":  69.6139907836914,
+                                         "clipiqa":  0.5320320129394531,
+                                         "lpips":  0.1533142626285553,
+                                         "dists":  0.09609895944595337,
+                                         "ssim":  0.8969804644584656,
+                                         "psnr":  31.788306572190436
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  4,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0827x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0827.png",
+                          "scores":  {
+                                         "niqe":  5.547685146331787,
+                                         "maniqa":  0.25275158882141113,
+                                         "musiq":  54.72955322265625,
+                                         "clipiqa":  0.23127512633800507,
+                                         "lpips":  0.3190917372703552,
+                                         "dists":  0.12448900938034058,
+                                         "ssim":  0.9144281148910522,
+                                         "psnr":  35.64906420004337
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  5,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0830x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0830.png",
+                          "scores":  {
+                                         "niqe":  5.00211763381958,
+                                         "maniqa":  0.40945085883140564,
+                                         "musiq":  60.44007110595703,
+                                         "clipiqa":  0.41831618547439575,
+                                         "lpips":  0.27992650866508484,
+                                         "dists":  0.19015848636627197,
+                                         "ssim":  0.7766010165214539,
+                                         "psnr":  26.519441510813376
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  6,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0836x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0836.png",
+                          "scores":  {
+                                         "niqe":  4.67811393737793,
+                                         "maniqa":  0.41373658180236816,
+                                         "musiq":  65.29674530029297,
+                                         "clipiqa":  0.3575925827026367,
+                                         "lpips":  0.15990406274795532,
+                                         "dists":  0.12082177400588989,
+                                         "ssim":  0.8561612963676453,
+                                         "psnr":  28.37718917615669
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  7,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0843x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0843.png",
+                          "scores":  {
+                                         "niqe":  8.189589500427246,
+                                         "maniqa":  0.36081603169441223,
+                                         "musiq":  57.450035095214844,
+                                         "clipiqa":  0.6699504852294922,
+                                         "lpips":  0.055016327649354935,
+                                         "dists":  0.12170493602752686,
+                                         "ssim":  0.9846736192703247,
+                                         "psnr":  41.51575742495303
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  8,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0844x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0844.png",
+                          "scores":  {
+                                         "niqe":  6.682789325714111,
+                                         "maniqa":  0.3592044413089752,
+                                         "musiq":  54.877235412597656,
+                                         "clipiqa":  0.5966965556144714,
+                                         "lpips":  0.037434838712215424,
+                                         "dists":  0.05432784557342529,
+                                         "ssim":  0.9911571741104126,
+                                         "psnr":  42.319884932859864
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  9,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0847x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0847.png",
+                          "scores":  {
+                                         "niqe":  4.08215856552124,
+                                         "maniqa":  0.3670536279678345,
+                                         "musiq":  68.31143951416016,
+                                         "clipiqa":  0.4484219253063202,
+                                         "lpips":  0.18050074577331543,
+                                         "dists":  0.06563591957092285,
+                                         "ssim":  0.8792470097541809,
+                                         "psnr":  30.23007671072131
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  10,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0857x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0857.png",
+                          "scores":  {
+                                         "niqe":  7.912019729614258,
+                                         "maniqa":  0.2900755703449249,
+                                         "musiq":  46.38092041015625,
+                                         "clipiqa":  0.5629618167877197,
+                                         "lpips":  0.634009063243866,
+                                         "dists":  0.2225254774093628,
+                                         "ssim":  0.8344879150390625,
+                                         "psnr":  36.020700144721765
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  11,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0860x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0860.png",
+                          "scores":  {
+                                         "niqe":  4.497718811035156,
+                                         "maniqa":  0.31062790751457214,
+                                         "musiq":  61.645179748535156,
+                                         "clipiqa":  0.5324892997741699,
+                                         "lpips":  0.4131096601486206,
+                                         "dists":  0.12482750415802002,
+                                         "ssim":  0.6674626469612122,
+                                         "psnr":  22.182433877012556
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  12,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0865x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0865.png",
+                          "scores":  {
+                                         "niqe":  5.115775108337402,
+                                         "maniqa":  0.3992531895637512,
+                                         "musiq":  58.88578796386719,
+                                         "clipiqa":  0.34463977813720703,
+                                         "lpips":  0.3707033097743988,
+                                         "dists":  0.17924654483795166,
+                                         "ssim":  0.7981532216072083,
+                                         "psnr":  28.80560601236324
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  13,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0868x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0868.png",
+                          "scores":  {
+                                         "niqe":  6.045783519744873,
+                                         "maniqa":  0.408321738243103,
+                                         "musiq":  62.1775016784668,
+                                         "clipiqa":  0.7480269074440002,
+                                         "lpips":  0.05112176388502121,
+                                         "dists":  0.11253482103347778,
+                                         "ssim":  0.9654988050460815,
+                                         "psnr":  34.18229125698679
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  14,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0875x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0875.png",
+                          "scores":  {
+                                         "niqe":  4.735740661621094,
+                                         "maniqa":  0.4140358865261078,
+                                         "musiq":  54.23534393310547,
+                                         "clipiqa":  0.2036978304386139,
+                                         "lpips":  0.31800583004951477,
+                                         "dists":  0.18214267492294312,
+                                         "ssim":  0.7188242673873901,
+                                         "psnr":  25.926900557110653
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  15,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0880x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0880.png",
+                          "scores":  {
+                                         "niqe":  5.99498176574707,
+                                         "maniqa":  0.38172465562820435,
+                                         "musiq":  60.8734245300293,
+                                         "clipiqa":  0.5574573278427124,
+                                         "lpips":  0.16079147160053253,
+                                         "dists":  0.14188915491104126,
+                                         "ssim":  0.9170096516609192,
+                                         "psnr":  33.31395603719245
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  16,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0888x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0888.png",
+                          "scores":  {
+                                         "niqe":  5.002056121826172,
+                                         "maniqa":  0.27349716424942017,
+                                         "musiq":  58.520362854003906,
+                                         "clipiqa":  0.3426021933555603,
+                                         "lpips":  0.17800520360469818,
+                                         "dists":  0.06891447305679321,
+                                         "ssim":  0.909862756729126,
+                                         "psnr":  32.253718483828536
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  17,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0893x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0893.png",
+                          "scores":  {
+                                         "niqe":  5.786038875579834,
+                                         "maniqa":  0.2817678451538086,
+                                         "musiq":  51.09914779663086,
+                                         "clipiqa":  0.3988114893436432,
+                                         "lpips":  0.4568256139755249,
+                                         "dists":  0.15796899795532227,
+                                         "ssim":  0.8555662631988525,
+                                         "psnr":  34.557751717214806
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  18,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0897x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0897.png",
+                          "scores":  {
+                                         "niqe":  5.387968063354492,
+                                         "maniqa":  0.35285577178001404,
+                                         "musiq":  53.51094055175781,
+                                         "clipiqa":  0.5901896357536316,
+                                         "lpips":  0.29339563846588135,
+                                         "dists":  0.26388609409332275,
+                                         "ssim":  0.7517251968383789,
+                                         "psnr":  23.418036543700467
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  19,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0898x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0898.png",
+                          "scores":  {
+                                         "niqe":  6.19814395904541,
+                                         "maniqa":  0.3899361789226532,
+                                         "musiq":  66.0320053100586,
+                                         "clipiqa":  0.7037997245788574,
+                                         "lpips":  0.2567114531993866,
+                                         "dists":  0.1065109372138977,
+                                         "ssim":  0.9352961778640747,
+                                         "psnr":  36.150856292758554
+                                     },
+                          "error":  null
+                      },
+                      {
+                          "index":  20,
+                          "res":  "/sr/code/sr/stage2/outputs/inference/base_512/version_1_1/output/l2_128/0900x4.png",
+                          "hr":  "/sr/data/DIV2K/val/HR/0900.png",
+                          "scores":  {
+                                         "niqe":  4.320374011993408,
+                                         "maniqa":  0.3663056492805481,
+                                         "musiq":  65.9458999633789,
+                                         "clipiqa":  0.3551999032497406,
+                                         "lpips":  0.16240909695625305,
+                                         "dists":  0.08883613348007202,
+                                         "ssim":  0.9022631049156189,
+                                         "psnr":  30.405590576442343
+                                     },
+                          "error":  null
+                      }
+                  ],
+    "note":  "If hr exists, FR metrics (lpips,dists) are computed. NR metrics (niqe,maniqa,musiq,clipiqa) are always computed on res. For FR alignment, hr is transformed to res size with diffusers resize_mode=\u0027crop\u0027 center-crop semantics when fr_resize=to_res_crop (legacy alias: to_ref).\nRestoration metrics are computed on Y channel with crop_border=scale. If shape mismatches, hr is aligned to res using diffusers resize_mode=\u0027crop\u0027 center-crop semantics."
+}
+
