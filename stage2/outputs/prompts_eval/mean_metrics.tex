@@ -1,0 +1,36 @@
+% Requires: \usepackage{booktabs,graphicx}
+\begin{table*}[t]
+  \centering
+  \setlength{\tabcolsep}{4.4pt}
+  \renewcommand{\arraystretch}{1.12}
+  \small
+  \caption{Mean evaluation metrics across checkpoints.}
+  \label{tab:mean-metrics}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{lcccccccc}
+    \toprule
+    Method & \multicolumn{4}{c}{No-reference} & \multicolumn{2}{c}{Full-reference} & \multicolumn{2}{c}{Restoration} \\
+    \cmidrule(lr){2-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+    & NIQE $\downarrow$ & MANIQA $\uparrow$ & MUSIQ $\uparrow$ & CLIPIQA $\uparrow$ & LPIPS $\downarrow$ & DISTS $\downarrow$ & PSNR $\uparrow$ & SSIM $\uparrow$ \\
+    \midrule
+    \multicolumn{9}{l}{\textit{hat}} \\
+    hat\_l & 5.2936 & 0.3683 & 60.8438 & 0.4953 & \underline{0.2401} & \underline{0.1272} & \textbf{31.3954} & \textbf{0.8576} \\
+    hat\_sharper & \textbf{3.8628} & 0.3635 & 64.4889 & 0.5230 & \textbf{0.2097} & \textbf{0.1163} & \underline{27.2030} & \underline{0.7778} \\
+    \midrule
+    \multicolumn{9}{l}{\textit{test}} \\
+    test\_1\_l & 4.7201 & 0.4458 & 72.7640 & 0.6863 & 0.2479 & 0.1491 & 21.0582 & 0.6911 \\
+    test\_1\_sharper & 4.2671 & \underline{0.4901} & \underline{74.2620} & 0.7190 & 0.2807 & 0.1652 & 19.7796 & 0.6300 \\
+    test\_2\_l & 5.2384 & 0.4414 & 72.4090 & 0.6960 & 0.2599 & 0.1570 & 21.2969 & 0.6583 \\
+    test\_2\_sharper & 4.6421 & 0.4820 & 73.8241 & \textbf{0.7205} & 0.2854 & 0.1703 & 20.0947 & 0.6059 \\
+    test\_3\_l & 4.8973 & 0.4273 & 71.5047 & 0.6720 & 0.2460 & 0.1475 & 22.2088 & 0.6969 \\
+    test\_3\_sharper & 4.5145 & 0.4689 & 73.2206 & 0.7090 & 0.2716 & 0.1618 & 20.6811 & 0.6319 \\
+    test\_4\_l & 5.0518 & 0.3931 & 68.8584 & 0.6096 & 0.2567 & 0.1480 & 22.1260 & 0.7267 \\
+    test\_4\_sharper & 4.6045 & 0.4377 & 71.8081 & 0.6634 & 0.2745 & 0.1584 & 20.5245 & 0.6592 \\
+    test\_5\_l & 4.5593 & 0.4522 & 72.9535 & 0.6903 & 0.2561 & 0.1498 & 20.8521 & 0.6813 \\
+    test\_5\_sharper & \underline{4.1849} & \textbf{0.4944} & \textbf{74.3606} & \underline{0.7198} & 0.2915 & 0.1660 & 19.2551 & 0.6146 \\
+    \bottomrule
+  \end{tabular}%
+  }
+  \vspace{2pt}
+  \footnotesize{\textbf{Best} in bold, \underline{second-best} underlined.}
+\end{table*}
