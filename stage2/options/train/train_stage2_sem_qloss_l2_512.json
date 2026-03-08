@@ -4,8 +4,7 @@
   "prompts_json": "/sr/code/sr/stage2/prompts.json",
 
   "train_sem_only": true,
-  "pix_lora_weights_path": "/sr/code/sr/stage2/outputs/train/base_512/version_2/128_256",
-  "sem_lora_weights_path": "",
+  "pix_lora_weights_path": "/sr/code/sr/stage2/outputs/train/base_512/version_2/128_256/checkpoint-30000/",
   "pix_adapter_name": "pix",
   "sem_adapter_name": "sem",
   "pix_adapter_scale": 1.0,
