@@ -16,8 +16,8 @@
   "checkpointing_steps": 4000,
   "validation_epochs": 500,
 
-  "gpu_devices": "6, 7",
-  "num_processes": 2,
+  "gpu_devices": "6",
+  "num_processes": 1,
   "num_machines": 1,
   "machine_rank": 0,
 
