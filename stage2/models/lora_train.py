@@ -56,7 +56,6 @@ from diffusers import (
 )
 from diffusers.optimization import get_scheduler
 from diffusers.training_utils import (
-    _collate_lora_metadata,
     _to_cpu_contiguous,
     cast_training_params,
     compute_density_for_timestep_sampling,
@@ -218,6 +217,25 @@ def get_adapter_peft_state_dict(model: torch.nn.Module, adapter_name: str, state
         if adapter_name != "default":
             raise
         return get_peft_model_state_dict(model, **peft_kwargs)
+
+
+def collate_lora_metadata_for_adapter(modules_to_save: dict[str, Any], adapter_name: str) -> dict[str, Any]:
+    metadatas: dict[str, Any] = {}
+
+    for module_name, module in modules_to_save.items():
+        if not hasattr(module, "peft_config"):
+            continue
+
+        peft_config = module.peft_config
+        if adapter_name not in peft_config:
+            available = ", ".join(sorted(peft_config.keys()))
+            raise KeyError(
+                f"Adapter '{adapter_name}' not found in `{module_name}.peft_config`. Available adapters: [{available}]"
+            )
+
+        metadatas[f"{module_name}_lora_adapter_metadata"] = peft_config[adapter_name].to_dict()
+
+    return metadatas
 
 
 def main(args):
@@ -523,7 +541,7 @@ def main(args):
             Flux2KleinPipeline.save_lora_weights(
                 output_dir,
                 transformer_lora_layers=transformer_lora_layers_to_save,
-                **_collate_lora_metadata(modules_to_save),
+                **collate_lora_metadata_for_adapter(modules_to_save, trainable_adapter_name),
             )
 
     def load_model_hook(models, input_dir):
@@ -1226,7 +1244,7 @@ def main(args):
         Flux2KleinPipeline.save_lora_weights(
             save_directory=args.output_dir,
             transformer_lora_layers=transformer_lora_layers,
-            **_collate_lora_metadata(modules_to_save),
+            **collate_lora_metadata_for_adapter(modules_to_save, trainable_adapter_name),
         )
 
         images = []

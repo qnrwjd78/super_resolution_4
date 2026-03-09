@@ -2,13 +2,14 @@
   "model_path": "/sr/code/sr/stage2/weights/flux2-klein-base-9b",
   "output_dir": "/sr/code/sr/stage2/outputs/train/base_512/version_1/128_256",
   "prompts_json": "/sr/code/sr/stage2/prompts.json",
+  "train_sem_only": false,
   "lora_weights_path": "",
   "logging_dir": "logs",
   "resume_from_checkpoint": "",
   "checkpointing_steps": 5000,
   "validation_epochs": 500,
 
-  "gpu_devices": "6",
+  "gpu_devices": "3",
   "num_processes": 1,
   "num_machines": 1,
   "machine_rank": 0,
@@ -44,7 +45,7 @@
   "offload": true,
   "upcast_before_saving": false,
   "use_nr_iqa_loss": false,
-  "lambda_q": 0.05,
+  "lambda_q": 0.0,
   "lambda_fm": 1.0,
   "q_sigma_max": 0.4,
   "nr_iqa_metric": "ManIQA",
@@ -93,6 +94,6 @@
 
   "evaluation_output_dir": "/sr/output/base_512_train",
   "evaluation_device": "auto",
-  "evaluation_gpu_devices": "6",
+  "evaluation_gpu_devices": "3",
   "evaluation_fr_resize": "to_ref"
 }
