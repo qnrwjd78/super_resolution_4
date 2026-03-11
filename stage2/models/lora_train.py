@@ -181,6 +181,32 @@ def _reduce_q_score_per_sample(q_score: Any, batch_size: int, device: torch.devi
     return q_score
 
 
+def _is_linalg_svd_failure(exc: Exception) -> bool:
+    torch_c = getattr(torch, "_C", None)
+    lin_alg_error = getattr(torch_c, "_LinAlgError", None)
+    if lin_alg_error is not None and isinstance(exc, lin_alg_error):
+        return True
+
+    message = str(exc).lower()
+    return "linalg.svd" in message or ("svd" in message and "converge" in message)
+
+
+def _warn_q_metric_skip(args: Any, log_name: str, reason: str) -> None:
+    if not hasattr(args, "_q_metric_skip_counts"):
+        args._q_metric_skip_counts = {}
+    skip_counts = args._q_metric_skip_counts
+    count = int(skip_counts.get(log_name, 0)) + 1
+    skip_counts[log_name] = count
+
+    if count <= 3 or count % 100 == 0:
+        logger.warning(
+            "[Q-loss] Skipping metric '%s' for current batch (%s). skip_count=%d",
+            log_name,
+            reason,
+            count,
+        )
+
+
 def _build_q_metric_specs(args: Any, device: torch.device) -> list[dict[str, Any]]:
     metric_aliases = {
         "l2": "l2",
@@ -1183,13 +1209,32 @@ def main(args):
                             batch_size = sr_hat.shape[0]
                             q_weighted_terms: list[torch.Tensor] = []
                             for spec in args._q_metric_specs:
-                                if spec["requires_reference"]:
-                                    q_score = spec["module"](sr_hat.float(), target_pixels.float())
-                                else:
-                                    q_score = spec["module"](sr_hat.float())
+                                nan_scalar = torch.full([], float("nan"), device=sr_hat.device, dtype=torch.float32)
+                                try:
+                                    if spec["requires_reference"]:
+                                        q_score = spec["module"](sr_hat.float(), target_pixels.float())
+                                    else:
+                                        q_score = spec["module"](sr_hat.float())
+                                except Exception as exc:
+                                    if _is_linalg_svd_failure(exc):
+                                        _warn_q_metric_skip(args, spec["log_name"], f"{type(exc).__name__}: {exc}")
+                                        q_metric_log_values[f"q_{spec['log_name']}"] = nan_scalar
+                                        q_metric_log_values[f"q_loss_{spec['log_name']}"] = nan_scalar
+                                        continue
+                                    raise
 
                                 q_score = _reduce_q_score_per_sample(q_score, batch_size=batch_size, device=sr_hat.device)
-                                q_score = (q_score * q_mask).sum() / q_mask.sum().clamp_min(1.0)
+                                finite_mask = torch.isfinite(q_score).float()
+                                valid_mask = q_mask * finite_mask
+                                valid_count = valid_mask.sum()
+                                if valid_count.item() <= 0:
+                                    _warn_q_metric_skip(args, spec["log_name"], "all scores are non-finite")
+                                    q_metric_log_values[f"q_{spec['log_name']}"] = nan_scalar
+                                    q_metric_log_values[f"q_loss_{spec['log_name']}"] = nan_scalar
+                                    continue
+
+                                q_score = torch.nan_to_num(q_score, nan=0.0, posinf=0.0, neginf=0.0)
+                                q_score = (q_score * valid_mask).sum() / valid_count.clamp_min(1.0)
                                 q_loss_metric = q_score if spec["lower_better"] else -q_score
                                 q_scaled = q_loss_metric / spec["scale"]
                                 q_weighted = spec["weight"] * q_scaled

@@ -191,6 +191,9 @@ def nancov(x):
     cov_x = []
     for i in range(b):
         x_no_nan = x[i].masked_select(~nan_mask[i]).reshape(-1, feat_dim)
+        if x_no_nan.shape[0] <= 1:
+            cov_x.append(torch.zeros(feat_dim, feat_dim, dtype=x.dtype, device=x.device))
+            continue
         cov_x.append(cov(x_no_nan, rowvar=False))
     return torch.stack(cov_x)
 

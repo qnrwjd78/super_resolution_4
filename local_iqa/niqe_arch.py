@@ -155,13 +155,36 @@ def niqe(
     # fit a MVG (multivariate Gaussian) model to distorted patch features
     mu_distparam = nanmean(distparam, dim=1)
     cov_distparam = nancov(distparam)
+    mu_distparam = torch.nan_to_num(mu_distparam, nan=0.0, posinf=0.0, neginf=0.0)
+    mu_pris_param = torch.nan_to_num(mu_pris_param, nan=0.0, posinf=0.0, neginf=0.0)
+    cov_distparam = torch.nan_to_num(cov_distparam, nan=0.0, posinf=0.0, neginf=0.0)
+    cov_pris_param = torch.nan_to_num(cov_pris_param, nan=0.0, posinf=0.0, neginf=0.0)
 
     # compute niqe quality, Eq. 10 in the paper
-    invcov_param = torch.linalg.pinv((cov_pris_param + cov_distparam) / 2)
-    diff = (mu_pris_param - mu_distparam).unsqueeze(1)
-    quality = torch.bmm(torch.bmm(diff, invcov_param), diff.transpose(1, 2)).squeeze()
+    cov_mean = (cov_pris_param + cov_distparam) / 2
+    cov_mean = (cov_mean + cov_mean.transpose(1, 2)) / 2
+    eye = torch.eye(cov_mean.shape[-1], dtype=cov_mean.dtype, device=cov_mean.device).unsqueeze(0)
 
-    quality = torch.sqrt(quality)
+    invcov_param = None
+    for jitter in (0.0, 1e-8, 1e-6, 1e-4, 1e-2):
+        try:
+            cov_reg = cov_mean if jitter == 0.0 else cov_mean + jitter * eye
+            inv = torch.linalg.pinv(cov_reg, hermitian=True)
+        except RuntimeError:
+            continue
+        if torch.isfinite(inv).all():
+            invcov_param = inv
+            break
+
+    # For numerically unstable batches, return a zero-gradient neutral score.
+    if invcov_param is None:
+        return img.reshape(b, -1).sum(dim=1) * 0.0
+
+    diff = (mu_pris_param - mu_distparam).unsqueeze(1)
+    quality = torch.bmm(torch.bmm(diff, invcov_param), diff.transpose(1, 2))
+    quality = quality.squeeze(-1).squeeze(-1)
+    quality = torch.sqrt(torch.clamp(quality, min=0.0))
+    quality = torch.where(torch.isfinite(quality), quality, torch.zeros_like(quality))
     return quality
 
 
