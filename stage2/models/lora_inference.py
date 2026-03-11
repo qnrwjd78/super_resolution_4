@@ -106,6 +106,12 @@ def parse_args():
         help="Optional explicit path for the output manifest. Defaults to <output_dir>/results.json.",
     )
     parser.add_argument(
+        "--hr_dir",
+        type=str,
+        default=None,
+        help="Optional directory for cropped HR images. Defaults to <output_dir>/hr when crop_mode is not full.",
+    )
+    parser.add_argument(
         "--lora_weights_path",
         type=str,
         default=None,
@@ -164,6 +170,12 @@ def parse_args():
         type=str,
         default=None,
         help="Fallback prompt used when a sample in `--input_json` does not define `prompt` (ignored when `--prompt_name` is set).",
+    )
+    parser.add_argument(
+        "--force_prompt",
+        type=str,
+        default=None,
+        help="If set, use this prompt for every sample and ignore prompts defined in `--input_json`.",
     )
     parser.add_argument("--revision", type=str, default=None, help="Optional model revision.")
     parser.add_argument("--variant", type=str, default=None, help="Optional model variant.")
@@ -292,6 +304,12 @@ def parse_args():
         "--cpu_offload",
         action="store_true",
         help="Enable `enable_model_cpu_offload()` instead of keeping the whole pipeline on the target device.",
+    )
+    parser.add_argument(
+        "--sample_batch_size",
+        type=int,
+        default=1,
+        help="Sample-level batch size. Applied only when `--mode plain --crop_mode center_crop`.",
     )
     return parser.parse_args()
 
@@ -1019,6 +1037,25 @@ def run_plain_inference(
 
 
 @torch.no_grad()
+def run_plain_inference_batch(
+    pipeline: Flux2KleinPipeline,
+    condition_images: List[Image.Image],
+    prompts: List[str],
+    guidance_scale: float,
+    num_inference_steps: int,
+    generators: Optional[List[torch.Generator]],
+):
+    out = pipeline(
+        image=condition_images,
+        prompt=prompts,
+        guidance_scale=guidance_scale,
+        num_inference_steps=num_inference_steps,
+        generator=generators,
+    )
+    return out.images
+
+
+@torch.no_grad()
 def run_canvas_tile_inference(
     pipeline: Flux2KleinPipeline,
     condition_image: Image.Image,
@@ -1088,7 +1125,7 @@ def load_requested_loras(pipeline: Flux2KleinPipeline, args) -> None:
         loaded_adapter_weights.append(args.sem_adapter_scale)
 
     if args.lora_weights_path:
-        pipeline.load_lora_weights(args.lora_weights_path)
+        pipeline.load_lora_weights(args.lora_weights_path, adapter_name="default")
         loaded_adapter_names.append("default")
         loaded_adapter_weights.append(1.0)
 
@@ -1104,12 +1141,14 @@ def main():
 
     if args.crop_mode != "full" and args.resolution <= 0:
         raise ValueError("`--resolution` must be a positive integer when using crop modes.")
+    if args.sample_batch_size < 1:
+        raise ValueError("`--sample_batch_size` must be >= 1.")
 
     if args.mode == "canvas_tile" and args.tile_size_px <= args.tile_overlap_px:
         raise ValueError("`--tile_size_px` must be larger than `--tile_overlap_px`.")
 
-    fixed_prompt = None
-    if args.prompt_name:
+    fixed_prompt = args.force_prompt
+    if fixed_prompt is None and args.prompt_name:
         fixed_prompt = load_prompt_by_name(args.prompts_json, args.prompt_name)
 
     fallback_prompt = fixed_prompt if fixed_prompt is not None else args.default_prompt
@@ -1123,7 +1162,7 @@ def main():
     output_json = Path(args.output_json).expanduser().resolve() if args.output_json else output_dir / "results.json"
     output_json.parent.mkdir(parents=True, exist_ok=True)
 
-    hr_output_dir = output_dir / "hr"
+    hr_output_dir = Path(args.hr_dir).expanduser().resolve() if args.hr_dir else output_dir / "hr"
     if args.crop_mode != "full":
         hr_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1145,73 +1184,116 @@ def main():
 
     results = []
     used_output_names: set[str] = set()
-    sample_iter = tqdm(enumerate(samples), total=len(samples), desc="Inference", unit="sample", dynamic_ncols=True)
-    for index, sample in sample_iter:
-        cond_path = Path(sample["cond_path"])
-        hr_path = Path(sample["hr_path"]).resolve()
-        prompt = fixed_prompt if fixed_prompt is not None else sample["prompt"]
-        sample_iter.set_postfix_str(cond_path.name)
+    sample_iter = tqdm(range(0, len(samples)), total=len(samples), desc="Inference", unit="sample", dynamic_ncols=True)
+    use_center_crop_batching = args.mode == "plain" and args.crop_mode == "center_crop" and args.sample_batch_size > 1
+    while sample_iter.n < len(samples):
+        batch_start = sample_iter.n
+        batch_end = min(
+            len(samples),
+            batch_start + (args.sample_batch_size if use_center_crop_batching else 1),
+        )
+        batch_samples = samples[batch_start:batch_end]
 
-        seed = None if args.seed < 0 else args.seed + index
-        generator = build_generator(args.device, seed)
+        prepared = []
+        for index in range(batch_start, batch_end):
+            sample = samples[index]
+            cond_path = Path(sample["cond_path"])
+            hr_path = Path(sample["hr_path"]).resolve()
+            prompt = fixed_prompt if fixed_prompt is not None else sample["prompt"]
+            sample_iter.set_postfix_str(cond_path.name)
 
-        condition_image = load_rgb_image(cond_path)
-        hr_image = None
+            seed = None if args.seed < 0 else args.seed + index
+            generator = build_generator(args.device, seed)
 
-        if args.crop_mode != "full":
-            hr_image = load_rgb_image(hr_path)
-            condition_image, hr_image = crop_pair(
-                condition_image,
-                hr_image,
-                args.crop_mode,
-                args.resolution,
-                seed,
+            condition_image = load_rgb_image(cond_path)
+            hr_image = None
+
+            if args.crop_mode != "full":
+                hr_image = load_rgb_image(hr_path)
+                condition_image, hr_image = crop_pair(
+                    condition_image,
+                    hr_image,
+                    args.crop_mode,
+                    args.resolution,
+                    seed,
+                )
+
+            output_path = resolve_output_image_path(output_dir, cond_path, used_output_names)
+            saved_hr_path = hr_path
+            if args.crop_mode != "full":
+                saved_hr_path = hr_output_dir / f"{index:05d}_{hr_path.stem}_hr.png"
+
+            prepared.append(
+                {
+                    "index": index,
+                    "cond_path": cond_path,
+                    "hr_path": hr_path,
+                    "prompt": prompt,
+                    "generator": generator,
+                    "condition_image": condition_image,
+                    "hr_image": hr_image,
+                    "output_path": output_path,
+                    "saved_hr_path": saved_hr_path,
+                }
             )
 
-        if args.mode == "plain":
-            generated = run_plain_inference(
+        if use_center_crop_batching:
+            generated_images = run_plain_inference_batch(
                 pipeline=pipeline,
-                condition_image=condition_image,
-                prompt=prompt,
+                condition_images=[item["condition_image"] for item in prepared],
+                prompts=[item["prompt"] for item in prepared],
                 guidance_scale=args.guidance_scale,
                 num_inference_steps=args.num_inference_steps,
-                generator=generator,
-            )
-        elif args.mode == "canvas_tile":
-            generated = run_canvas_tile_inference(
-                pipeline=pipeline,
-                condition_image=condition_image,
-                prompt=prompt,
-                guidance_scale=args.guidance_scale,
-                num_inference_steps=args.num_inference_steps,
-                generator=generator,
-                canvas_height=args.canvas_height,
-                canvas_width=args.canvas_width,
-                tile_size_px=args.tile_size_px,
-                tile_overlap_px=args.tile_overlap_px,
-                tile_batch_size=args.tile_batch_size,
-                tile_sigma_ratio=args.tile_sigma_ratio,
-                canvas_padding_mode=args.canvas_padding_mode,
-                canvas_padding_position=args.canvas_padding_position,
-                canvas_padding_value=args.canvas_padding_value,
+                generators=[item["generator"] for item in prepared],
             )
         else:
-            raise ValueError(f"Unknown mode: {args.mode}")
+            generated_images = []
+            for item in prepared:
+                if args.mode == "plain":
+                    generated = run_plain_inference(
+                        pipeline=pipeline,
+                        condition_image=item["condition_image"],
+                        prompt=item["prompt"],
+                        guidance_scale=args.guidance_scale,
+                        num_inference_steps=args.num_inference_steps,
+                        generator=item["generator"],
+                    )
+                elif args.mode == "canvas_tile":
+                    generated = run_canvas_tile_inference(
+                        pipeline=pipeline,
+                        condition_image=item["condition_image"],
+                        prompt=item["prompt"],
+                        guidance_scale=args.guidance_scale,
+                        num_inference_steps=args.num_inference_steps,
+                        generator=item["generator"],
+                        canvas_height=args.canvas_height,
+                        canvas_width=args.canvas_width,
+                        tile_size_px=args.tile_size_px,
+                        tile_overlap_px=args.tile_overlap_px,
+                        tile_batch_size=args.tile_batch_size,
+                        tile_sigma_ratio=args.tile_sigma_ratio,
+                        canvas_padding_mode=args.canvas_padding_mode,
+                        canvas_padding_position=args.canvas_padding_position,
+                        canvas_padding_value=args.canvas_padding_value,
+                    )
+                else:
+                    raise ValueError(f"Unknown mode: {args.mode}")
+                generated_images.append(generated)
 
-        output_path = resolve_output_image_path(output_dir, cond_path, used_output_names)
-        generated.save(output_path)
+        for item, generated in zip(prepared, generated_images):
+            generated.save(item["output_path"])
 
-        saved_hr_path = hr_path
-        if args.crop_mode != "full":
-            saved_hr_path = hr_output_dir / f"{index:05d}_{hr_path.stem}_hr.png"
-            hr_image.save(saved_hr_path)
+            if args.crop_mode != "full":
+                item["hr_image"].save(item["saved_hr_path"])
 
-        results.append(
-            {
-                "res": str(output_path.resolve()),
-                "hr": str(Path(saved_hr_path).resolve()),
-            }
-        )
+            results.append(
+                {
+                    "res": str(item["output_path"].resolve()),
+                    "hr": str(Path(item["saved_hr_path"]).resolve()),
+                }
+            )
+
+        sample_iter.update(len(prepared))
 
     with output_json.open("w", encoding="utf-8") as handle:
         json.dump(results, handle, indent=2, ensure_ascii=False)

@@ -1,0 +1,31 @@
+{
+  "num_items": 1,
+  "device": "cuda",
+  "mean": {
+    "niqe": 3.214965343475342,
+    "maniqa": 0.29743099212646484,
+    "musiq": 70.20738983154297,
+    "lpips": 0.25580692291259766,
+    "dists": 0.07548892498016357,
+    "ssim": 0.7355340123176575,
+    "psnr": 26.305095075639468
+  },
+  "per_image": [
+    {
+      "index": 0,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0801x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0801.png",
+      "scores": {
+        "niqe": 3.214965343475342,
+        "maniqa": 0.29743099212646484,
+        "musiq": 70.20738983154297,
+        "lpips": 0.25580692291259766,
+        "dists": 0.07548892498016357,
+        "ssim": 0.7355340123176575,
+        "psnr": 26.305095075639468
+      },
+      "error": null
+    }
+  ],
+  "note": "If hr exists, FR metrics (lpips,dists) are computed. NR metrics (niqe,maniqa,musiq) are always computed on res. CLIP-IQA is excluded because it is not implemented in local_iqa. For FR alignment, hr is transformed to res size with diffusers resize_mode='crop' center-crop semantics when fr_resize=to_res_crop (legacy alias: to_ref).\nRestoration metrics are computed on Y channel with crop_border=scale. If shape mismatches, hr is aligned to res using diffusers resize_mode='crop' center-crop semantics."
+}

@@ -1,0 +1,497 @@
+{
+  "num_items": 30,
+  "device": "cuda",
+  "mean": {
+    "niqe": 3.778336270650228,
+    "maniqa": 0.35849501341581347,
+    "musiq": 65.73877499898275,
+    "clipiqa": 0.6162209103504817,
+    "lpips": 0.14500817979375522,
+    "dists": 0.07539517283439637,
+    "ssim": 0.779828280210495,
+    "psnr": 27.18832136249383
+  },
+  "per_image": [
+    {
+      "index": 0,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0801x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0801.png",
+      "scores": {
+        "niqe": 3.214965343475342,
+        "maniqa": 0.29743102192878723,
+        "musiq": 70.20738983154297,
+        "clipiqa": 0.6744487285614014,
+        "lpips": 0.25580692291259766,
+        "dists": 0.07548892498016357,
+        "ssim": 0.7355340123176575,
+        "psnr": 26.305095075639468
+      },
+      "error": null
+    },
+    {
+      "index": 1,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0802x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0802.png",
+      "scores": {
+        "niqe": 5.15582275390625,
+        "maniqa": 0.5389449596405029,
+        "musiq": 70.4825439453125,
+        "clipiqa": 0.831616222858429,
+        "lpips": 0.11350233852863312,
+        "dists": 0.06760311126708984,
+        "ssim": 0.7859721183776855,
+        "psnr": 30.50908662647402
+      },
+      "error": null
+    },
+    {
+      "index": 2,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0803x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0803.png",
+      "scores": {
+        "niqe": 5.176859378814697,
+        "maniqa": 0.3575437366962433,
+        "musiq": 70.49409484863281,
+        "clipiqa": 0.7521054148674011,
+        "lpips": 0.12827636301517487,
+        "dists": 0.08094501495361328,
+        "ssim": 0.9270873665809631,
+        "psnr": 32.529198365729386
+      },
+      "error": null
+    },
+    {
+      "index": 3,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0804x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0804.png",
+      "scores": {
+        "niqe": 2.646812677383423,
+        "maniqa": 0.3844175636768341,
+        "musiq": 67.01222229003906,
+        "clipiqa": 0.6790220141410828,
+        "lpips": 0.10900808870792389,
+        "dists": 0.048695266246795654,
+        "ssim": 0.7827183604240417,
+        "psnr": 27.323853248284536
+      },
+      "error": null
+    },
+    {
+      "index": 4,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0805x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0805.png",
+      "scores": {
+        "niqe": 3.971677780151367,
+        "maniqa": 0.23001629114151,
+        "musiq": 54.67688751220703,
+        "clipiqa": 0.5102747082710266,
+        "lpips": 0.21333125233650208,
+        "dists": 0.0988890528678894,
+        "ssim": 0.7092902660369873,
+        "psnr": 26.912916265252154
+      },
+      "error": null
+    },
+    {
+      "index": 5,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0806x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0806.png",
+      "scores": {
+        "niqe": 3.0621962547302246,
+        "maniqa": 0.4470922350883484,
+        "musiq": 71.24481964111328,
+        "clipiqa": 0.6770021915435791,
+        "lpips": 0.11250624805688858,
+        "dists": 0.06522542238235474,
+        "ssim": 0.8434975147247314,
+        "psnr": 28.14547200141611
+      },
+      "error": null
+    },
+    {
+      "index": 6,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0807x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0807.png",
+      "scores": {
+        "niqe": 2.3486220836639404,
+        "maniqa": 0.4666209816932678,
+        "musiq": 74.02950286865234,
+        "clipiqa": 0.7588034868240356,
+        "lpips": 0.20482373237609863,
+        "dists": 0.07977962493896484,
+        "ssim": 0.4810335040092468,
+        "psnr": 19.917261368649037
+      },
+      "error": null
+    },
+    {
+      "index": 7,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0808x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0808.png",
+      "scores": {
+        "niqe": 3.0235447883605957,
+        "maniqa": 0.4238256812095642,
+        "musiq": 72.32794952392578,
+        "clipiqa": 0.6502400040626526,
+        "lpips": 0.12353630363941193,
+        "dists": 0.06729751825332642,
+        "ssim": 0.7669280171394348,
+        "psnr": 25.459787659069914
+      },
+      "error": null
+    },
+    {
+      "index": 8,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0809x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0809.png",
+      "scores": {
+        "niqe": 3.7434253692626953,
+        "maniqa": 0.275893896818161,
+        "musiq": 70.60407257080078,
+        "clipiqa": 0.4986134469509125,
+        "lpips": 0.23238630592823029,
+        "dists": 0.08226287364959717,
+        "ssim": 0.7182859182357788,
+        "psnr": 27.77485000278592
+      },
+      "error": null
+    },
+    {
+      "index": 9,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0810x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0810.png",
+      "scores": {
+        "niqe": 3.936887741088867,
+        "maniqa": 0.31664037704467773,
+        "musiq": 67.90657806396484,
+        "clipiqa": 0.708570659160614,
+        "lpips": 0.17238542437553406,
+        "dists": 0.07370811700820923,
+        "ssim": 0.7209540009498596,
+        "psnr": 25.728802346687818
+      },
+      "error": null
+    },
+    {
+      "index": 10,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0812x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0812.png",
+      "scores": {
+        "niqe": 2.432995080947876,
+        "maniqa": 0.40346255898475647,
+        "musiq": 72.96064758300781,
+        "clipiqa": 0.5988044142723083,
+        "lpips": 0.1319882571697235,
+        "dists": 0.059220314025878906,
+        "ssim": 0.79173344373703,
+        "psnr": 26.98608549540822
+      },
+      "error": null
+    },
+    {
+      "index": 11,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0813x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0813.png",
+      "scores": {
+        "niqe": 3.5031278133392334,
+        "maniqa": 0.33765819668769836,
+        "musiq": 59.3482666015625,
+        "clipiqa": 0.6247238516807556,
+        "lpips": 0.10420012474060059,
+        "dists": 0.04827547073364258,
+        "ssim": 0.8507415056228638,
+        "psnr": 28.51558216740046
+      },
+      "error": null
+    },
+    {
+      "index": 12,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0822x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0822.png",
+      "scores": {
+        "niqe": 2.9090139865875244,
+        "maniqa": 0.4154203236103058,
+        "musiq": 74.60443878173828,
+        "clipiqa": 0.6932451128959656,
+        "lpips": 0.09658472239971161,
+        "dists": 0.048708319664001465,
+        "ssim": 0.833622932434082,
+        "psnr": 28.970683349429464
+      },
+      "error": null
+    },
+    {
+      "index": 13,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0827x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0827.png",
+      "scores": {
+        "niqe": 4.307738304138184,
+        "maniqa": 0.2574264407157898,
+        "musiq": 58.55649185180664,
+        "clipiqa": 0.4151095449924469,
+        "lpips": 0.20022912323474884,
+        "dists": 0.07599717378616333,
+        "ssim": 0.7985641956329346,
+        "psnr": 27.798586447464473
+      },
+      "error": null
+    },
+    {
+      "index": 14,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0830x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0830.png",
+      "scores": {
+        "niqe": 2.4451231956481934,
+        "maniqa": 0.45919540524482727,
+        "musiq": 71.45549774169922,
+        "clipiqa": 0.6094549298286438,
+        "lpips": 0.1398278772830963,
+        "dists": 0.07628238201141357,
+        "ssim": 0.7192553281784058,
+        "psnr": 24.696452256371508
+      },
+      "error": null
+    },
+    {
+      "index": 15,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0836x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0836.png",
+      "scores": {
+        "niqe": 3.022888422012329,
+        "maniqa": 0.41451147198677063,
+        "musiq": 71.29188537597656,
+        "clipiqa": 0.43235036730766296,
+        "lpips": 0.09417068213224411,
+        "dists": 0.0576099157333374,
+        "ssim": 0.8199732899665833,
+        "psnr": 26.32843931401723
+      },
+      "error": null
+    },
+    {
+      "index": 16,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0843x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0843.png",
+      "scores": {
+        "niqe": 7.181767463684082,
+        "maniqa": 0.3577287197113037,
+        "musiq": 60.30198287963867,
+        "clipiqa": 0.7277471423149109,
+        "lpips": 0.03593388944864273,
+        "dists": 0.09137517213821411,
+        "ssim": 0.95854651927948,
+        "psnr": 30.893258873710714
+      },
+      "error": null
+    },
+    {
+      "index": 17,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0844x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0844.png",
+      "scores": {
+        "niqe": 5.0093183517456055,
+        "maniqa": 0.32806113362312317,
+        "musiq": 56.42692565917969,
+        "clipiqa": 0.6536223888397217,
+        "lpips": 0.15656189620494843,
+        "dists": 0.09922242164611816,
+        "ssim": 0.9537181854248047,
+        "psnr": 27.560775291706065
+      },
+      "error": null
+    },
+    {
+      "index": 18,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0847x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0847.png",
+      "scores": {
+        "niqe": 2.918060064315796,
+        "maniqa": 0.35373982787132263,
+        "musiq": 68.38224792480469,
+        "clipiqa": 0.4691493511199951,
+        "lpips": 0.10663458704948425,
+        "dists": 0.03852677345275879,
+        "ssim": 0.8273420333862305,
+        "psnr": 27.6381328718698
+      },
+      "error": null
+    },
+    {
+      "index": 19,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0857x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0857.png",
+      "scores": {
+        "niqe": 6.13169527053833,
+        "maniqa": 0.21919730305671692,
+        "musiq": 42.236228942871094,
+        "clipiqa": 0.5969836115837097,
+        "lpips": 0.1905239373445511,
+        "dists": 0.16149777173995972,
+        "ssim": 0.7856084108352661,
+        "psnr": 34.0277429333983
+      },
+      "error": null
+    },
+    {
+      "index": 20,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0860x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0860.png",
+      "scores": {
+        "niqe": 2.509748697280884,
+        "maniqa": 0.3085975646972656,
+        "musiq": 63.7850227355957,
+        "clipiqa": 0.6186276078224182,
+        "lpips": 0.23637810349464417,
+        "dists": 0.0609777569770813,
+        "ssim": 0.5463281273841858,
+        "psnr": 19.59914864736918
+      },
+      "error": null
+    },
+    {
+      "index": 21,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0865x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0865.png",
+      "scores": {
+        "niqe": 2.8366634845733643,
+        "maniqa": 0.45349621772766113,
+        "musiq": 68.95153045654297,
+        "clipiqa": 0.6361488103866577,
+        "lpips": 0.2023545354604721,
+        "dists": 0.08408957719802856,
+        "ssim": 0.7064188122749329,
+        "psnr": 25.736747355294156
+      },
+      "error": null
+    },
+    {
+      "index": 22,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0868x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0868.png",
+      "scores": {
+        "niqe": 4.56443452835083,
+        "maniqa": 0.34736305475234985,
+        "musiq": 66.84883880615234,
+        "clipiqa": 0.8075587153434753,
+        "lpips": 0.06061524897813797,
+        "dists": 0.07813304662704468,
+        "ssim": 0.94624924659729,
+        "psnr": 27.547734133371794
+      },
+      "error": null
+    },
+    {
+      "index": 23,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0875x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0875.png",
+      "scores": {
+        "niqe": 3.248148202896118,
+        "maniqa": 0.3879506587982178,
+        "musiq": 65.28768920898438,
+        "clipiqa": 0.2781011462211609,
+        "lpips": 0.16603253781795502,
+        "dists": 0.08207553625106812,
+        "ssim": 0.6165093779563904,
+        "psnr": 22.947949481171406
+      },
+      "error": null
+    },
+    {
+      "index": 24,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0880x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0880.png",
+      "scores": {
+        "niqe": 3.926436185836792,
+        "maniqa": 0.3865417540073395,
+        "musiq": 69.61847686767578,
+        "clipiqa": 0.7163438200950623,
+        "lpips": 0.11790004372596741,
+        "dists": 0.09606105089187622,
+        "ssim": 0.8626295328140259,
+        "psnr": 29.6606699166187
+      },
+      "error": null
+    },
+    {
+      "index": 25,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0888x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0888.png",
+      "scores": {
+        "niqe": 3.12351131439209,
+        "maniqa": 0.29006528854370117,
+        "musiq": 62.47752380371094,
+        "clipiqa": 0.47800445556640625,
+        "lpips": 0.09556391090154648,
+        "dists": 0.03327643871307373,
+        "ssim": 0.8492498993873596,
+        "psnr": 29.23323436181626
+      },
+      "error": null
+    },
+    {
+      "index": 26,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0893x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0893.png",
+      "scores": {
+        "niqe": 4.278853893280029,
+        "maniqa": 0.24229685962200165,
+        "musiq": 49.49132537841797,
+        "clipiqa": 0.44357600808143616,
+        "lpips": 0.145717054605484,
+        "dists": 0.07188957929611206,
+        "ssim": 0.7359527945518494,
+        "psnr": 27.739706624041872
+      },
+      "error": null
+    },
+    {
+      "index": 27,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0897x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0897.png",
+      "scores": {
+        "niqe": 5.106822967529297,
+        "maniqa": 0.3505115807056427,
+        "musiq": 64.83069610595703,
+        "clipiqa": 0.7229423522949219,
+        "lpips": 0.16167637705802917,
+        "dists": 0.14282429218292236,
+        "ssim": 0.6144622564315796,
+        "psnr": 20.36965726693806
+      },
+      "error": null
+    },
+    {
+      "index": 28,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0898x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0898.png",
+      "scores": {
+        "niqe": 4.660942554473877,
+        "maniqa": 0.362814337015152,
+        "musiq": 70.22283172607422,
+        "clipiqa": 0.7410848140716553,
+        "lpips": 0.13979855179786682,
+        "dists": 0.06805068254470825,
+        "ssim": 0.8742330074310303,
+        "psnr": 31.8281085860899
+      },
+      "error": null
+    },
+    {
+      "index": 29,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0900x4.png",
+      "hr": "/sr/data/DIV2K/val/HR/0900.png",
+      "scores": {
+        "niqe": 2.951984167098999,
+        "maniqa": 0.34038496017456055,
+        "musiq": 66.09864044189453,
+        "clipiqa": 0.48235198855400085,
+        "lpips": 0.1019909530878067,
+        "dists": 0.0478665828704834,
+        "ssim": 0.8324084281921387,
+        "psnr": 26.964622541339203
+      },
+      "error": null
+    }
+  ],
+  "note": "If hr exists, FR metrics (lpips,dists) are computed. NR metrics (niqe,maniqa,musiq,clipiqa) are always computed on res. For FR alignment, hr is transformed to res size with diffusers resize_mode='crop' center-crop semantics when fr_resize=to_res_crop (legacy alias: to_ref).\nRestoration metrics are computed on Y channel with crop_border=scale. If shape mismatches, hr is aligned to res using diffusers resize_mode='crop' center-crop semantics."
+}

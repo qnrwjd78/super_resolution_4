@@ -1,0 +1,34 @@
+{
+  "num_items": 2,
+  "device": "cuda",
+  "mean": {
+    "niqe": 11.362470626831055,
+    "maniqa": 0.7348364591598511,
+    "musiq": 63.80787467956543
+  },
+  "per_image": [
+    {
+      "index": 0,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/maniqa/0801x4.png",
+      "hr": null,
+      "scores": {
+        "niqe": 11.279699325561523,
+        "maniqa": 0.7357224225997925,
+        "musiq": 63.68946075439453
+      },
+      "error": null
+    },
+    {
+      "index": 1,
+      "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/maniqa/0802x4.png",
+      "hr": null,
+      "scores": {
+        "niqe": 11.445241928100586,
+        "maniqa": 0.7339504957199097,
+        "musiq": 63.92628860473633
+      },
+      "error": null
+    }
+  ],
+  "note": "If hr exists, FR metrics (lpips,dists) are computed. NR metrics (niqe,maniqa,musiq) are always computed on res. CLIP-IQA is excluded because it is not implemented in local_iqa. For FR alignment, hr is transformed to res size with diffusers resize_mode='crop' center-crop semantics when fr_resize=to_res_crop (legacy alias: to_ref).\nNo valid (res,hr) pairs found for restoration metrics."
+}

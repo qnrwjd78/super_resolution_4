@@ -2,6 +2,12 @@ import argparse
 import os
 
 
+def _parse_csv_items(value):
+    if value is None:
+        return []
+    return [item.strip() for item in str(value).split(",") if item.strip()]
+
+
 def parse_args(input_args=None):
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
@@ -112,45 +118,6 @@ def parse_args(input_args=None):
         type=int,
         default=512,
         help="Maximum sequence length to use with with the T5 text encoder",
-    )
-    parser.add_argument(
-        "--validation_prompt",
-        type=str,
-        default=None,
-        help="A prompt that is used during validation to verify that the model is learning.",
-    )
-    parser.add_argument(
-        "--validation_image",
-        type=str,
-        default=None,
-        help="path to an image that is used during validation as the condition image to verify that the model is learning.",
-    )
-    parser.add_argument(
-        "--skip_final_inference",
-        default=False,
-        action="store_true",
-        help="Whether to skip the final inference step with loaded lora weights upon training completion. This will run intermediate validation inference if `validation_prompt` is provided. Specify to reduce memory.",
-    )
-    parser.add_argument(
-        "--final_validation_prompt",
-        type=str,
-        default=None,
-        help="A prompt that is used during a final validation to verify that the model is learning. Ignored if `--validation_prompt` is provided.",
-    )
-    parser.add_argument(
-        "--num_validation_images",
-        type=int,
-        default=4,
-        help="Number of images that should be generated during validation with `validation_prompt`.",
-    )
-    parser.add_argument(
-        "--validation_epochs",
-        type=int,
-        default=50,
-        help=(
-            "Run dreambooth validation every X epochs. Dreambooth validation consists of running the prompt"
-            " `args.validation_prompt` multiple times: `args.num_validation_images`."
-        ),
     )
     parser.add_argument(
         "--rank",
@@ -339,7 +306,19 @@ def parse_args(input_args=None):
         "--nr_iqa_metric",
         type=str,
         default="musiq",
-        help="Q-loss metric. Supported labels: NIQE, ManIQA, MUSIQ, L2. (CLIP-IQA excluded)",
+        help=(
+            "Q-loss metric label or comma-separated metric labels. Supported labels: "
+            "NIQE, ManIQA, MUSIQ, L2, LPIPS, DISTS. (CLIP-IQA excluded)"
+        ),
+    )
+    parser.add_argument(
+        "--q_metric_weights",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated per-metric weights aligned with `--nr_iqa_metric`. "
+            "Defaults to 1.0 for each metric."
+        ),
     )
     parser.add_argument(
         "--optimizer",
@@ -480,6 +459,18 @@ def parse_args(input_args=None):
 
     if args.resolution <= 0:
         raise ValueError("`--resolution` must be a positive integer.")
+
+    q_metrics = _parse_csv_items(args.nr_iqa_metric)
+    if not q_metrics:
+        raise ValueError("`--nr_iqa_metric` must contain at least one metric.")
+
+    for field_name in ("q_metric_weights",):
+        field_value = getattr(args, field_name)
+        field_items = _parse_csv_items(field_value)
+        if field_items and len(field_items) not in {1, len(q_metrics)}:
+            raise ValueError(
+                f"`--{field_name}` expects either 1 value or {len(q_metrics)} values to match `--nr_iqa_metric`."
+            )
 
     if args.train_sem_only:
         if args.pix_adapter_name == args.sem_adapter_name:

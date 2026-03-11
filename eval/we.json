@@ -1,0 +1,6 @@
+[
+    {
+        "res": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics/output/lpips/0801x4.png",
+        "hr": "/sr/data/DIV2K/val/HR/0801.png"
+    }
+]

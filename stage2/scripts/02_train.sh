@@ -59,17 +59,6 @@ run_flux2_accelerate() {
   fi
 }
 
-run_eval_python() {
-  if has conda; then
-    conda run -n eval --no-capture-output python "$@"
-  elif [[ -x /usr/local/bin/eval ]]; then
-    /usr/local/bin/eval python "$@"
-  else
-    echo "ERROR: conda env 'eval' (or /usr/local/bin/eval wrapper) not found." >&2
-    exit 1
-  fi
-}
-
 run_cuda_preflight() {
   run_flux2_python - <<'PY'
 import os
@@ -202,17 +191,17 @@ mapping = {
     "pretrained_model_name_or_path": "CFG_MODEL_PATH",
     "revision": "CFG_REVISION",
     "variant": "CFG_VARIANT",
+    "pix_lora_weights_path": "CFG_PIX_LORA_WEIGHTS_PATH",
+    "pix_adapter_name": "CFG_PIX_ADAPTER_NAME",
+    "sem_adapter_name": "CFG_SEM_ADAPTER_NAME",
+    "pix_adapter_scale": "CFG_PIX_ADAPTER_SCALE",
+    "sem_adapter_scale": "CFG_SEM_ADAPTER_SCALE",
     "train_data_json": "CFG_TRAIN_DATA_JSON",
     "output_dir": "CFG_OUTPUT_DIR",
     "prompts_json": "CFG_PROMPTS_JSON",
     "instance_prompt": "CFG_INSTANCE_PROMPT",
     "instance_prompt_name": "CFG_INSTANCE_PROMPT_NAME",
     "lora_weights_path": "CFG_LORA_WEIGHTS_PATH",
-    "validation_prompt": "CFG_VALIDATION_PROMPT",
-    "validation_prompt_name": "CFG_VALIDATION_PROMPT_NAME",
-    "validation_image": "CFG_VALIDATION_IMAGE",
-    "final_validation_prompt": "CFG_FINAL_VALIDATION_PROMPT",
-    "final_validation_prompt_name": "CFG_FINAL_VALIDATION_PROMPT_NAME",
     "resolution": "CFG_RESOLUTION",
     "train_batch_size": "CFG_TRAIN_BATCH_SIZE",
     "gradient_accumulation_steps": "CFG_GRADIENT_ACCUMULATION_STEPS",
@@ -228,34 +217,17 @@ mapping = {
     "seed": "CFG_SEED",
     "repeats": "CFG_REPEATS",
     "nr_iqa_metric": "CFG_NR_IQA_METRIC",
+    "q_metric_weights": "CFG_Q_METRIC_WEIGHTS",
     "checkpointing_steps": "CFG_CHECKPOINTING_STEPS",
-    "skip_final_inference": "CFG_SKIP_FINAL_INFERENCE",
     "random_flip": "CFG_RANDOM_FLIP",
     "center_crop": "CFG_CENTER_CROP",
     "offload": "CFG_OFFLOAD",
     "resume_from_checkpoint": "CFG_RESUME_FROM_CHECKPOINT",
     "gpu_devices": "CFG_GPU_DEVICES",
-    "test_data_json": "CFG_TEST_DATA_JSON",
-    "test_name": "CFG_TEST_NAME",
-    "inference_output_dir": "CFG_INFERENCE_OUTPUT_DIR",
-    "evaluation_output_dir": "CFG_EVALUATION_OUTPUT_DIR",
-    "inference_mode": "CFG_INFERENCE_MODE",
-    "inference_crop_mode": "CFG_INFERENCE_CROP_MODE",
-    "inference_resolution": "CFG_INFERENCE_RESOLUTION",
-    "inference_guidance_scale": "CFG_INFERENCE_GUIDANCE_SCALE",
-    "inference_num_inference_steps": "CFG_INFERENCE_NUM_INFERENCE_STEPS",
-    "inference_dtype": "CFG_INFERENCE_DTYPE",
-    "inference_device": "CFG_INFERENCE_DEVICE",
-    "inference_seed": "CFG_INFERENCE_SEED",
-    "inference_cpu_offload": "CFG_INFERENCE_CPU_OFFLOAD",
-    "evaluation_device": "CFG_EVALUATION_DEVICE",
-    "evaluation_gpu_devices": "CFG_EVALUATION_GPU_DEVICES",
-    "evaluation_fr_resize": "CFG_EVALUATION_FR_RESIZE",
 }
 
 store_true_keys = {
     "do_fp8_training",
-    "skip_final_inference",
     "center_crop",
     "random_flip",
     "gradient_checkpointing",
@@ -350,17 +322,17 @@ load_options_json "$OPTIONS_JSON"
 MODEL_PATH="${MODEL_PATH:-${CFG_MODEL_PATH:-$STAGE2_DIR/weights/flux2-klein-base-9b}}"
 REVISION="${REVISION:-${CFG_REVISION:-}}"
 VARIANT="${VARIANT:-${CFG_VARIANT:-}}"
+PIX_LORA_WEIGHTS_PATH="${PIX_LORA_WEIGHTS_PATH:-${CFG_PIX_LORA_WEIGHTS_PATH:-}}"
+PIX_ADAPTER_NAME="${PIX_ADAPTER_NAME:-${CFG_PIX_ADAPTER_NAME:-pix}}"
+SEM_ADAPTER_NAME="${SEM_ADAPTER_NAME:-${CFG_SEM_ADAPTER_NAME:-sem}}"
+PIX_ADAPTER_SCALE="${PIX_ADAPTER_SCALE:-${CFG_PIX_ADAPTER_SCALE:-1.0}}"
+SEM_ADAPTER_SCALE="${SEM_ADAPTER_SCALE:-${CFG_SEM_ADAPTER_SCALE:-1.0}}"
 TRAIN_DATA_JSON="${TRAIN_DATA_JSON:-${CFG_TRAIN_DATA_JSON:-}}"
 OUTPUT_DIR="${OUTPUT_DIR:-${CFG_OUTPUT_DIR:-$STAGE2_DIR/outputs/lora_train}}"
 PROMPTS_JSON="${PROMPTS_JSON:-${CFG_PROMPTS_JSON:-$DEFAULT_PROMPTS_JSON}}"
 INSTANCE_PROMPT="${INSTANCE_PROMPT:-${CFG_INSTANCE_PROMPT:-Enhance the perceptual quality of the condition image while preserving the original content, structure, and colors.}}"
 INSTANCE_PROMPT_NAME="${INSTANCE_PROMPT_NAME:-${CFG_INSTANCE_PROMPT_NAME:-}}"
 LORA_WEIGHTS_PATH="${LORA_WEIGHTS_PATH:-${CFG_LORA_WEIGHTS_PATH:-}}"
-VALIDATION_PROMPT="${VALIDATION_PROMPT:-${CFG_VALIDATION_PROMPT:-}}"
-VALIDATION_PROMPT_NAME="${VALIDATION_PROMPT_NAME:-${CFG_VALIDATION_PROMPT_NAME:-}}"
-VALIDATION_IMAGE="${VALIDATION_IMAGE:-${CFG_VALIDATION_IMAGE:-}}"
-FINAL_VALIDATION_PROMPT="${FINAL_VALIDATION_PROMPT:-${CFG_FINAL_VALIDATION_PROMPT:-}}"
-FINAL_VALIDATION_PROMPT_NAME="${FINAL_VALIDATION_PROMPT_NAME:-${CFG_FINAL_VALIDATION_PROMPT_NAME:-}}"
 
 RESOLUTION="${RESOLUTION:-${CFG_RESOLUTION:-512}}"
 TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-${CFG_TRAIN_BATCH_SIZE:-1}}"
@@ -377,8 +349,8 @@ REPORT_TO="${REPORT_TO:-${CFG_REPORT_TO:-tensorboard}}"
 SEED="${SEED:-${CFG_SEED:-0}}"
 REPEATS="${REPEATS:-${CFG_REPEATS:-1}}"
 NR_IQA_METRIC="${NR_IQA_METRIC:-${CFG_NR_IQA_METRIC:-musiq}}"
+Q_METRIC_WEIGHTS="${Q_METRIC_WEIGHTS:-${CFG_Q_METRIC_WEIGHTS:-}}"
 CHECKPOINTING_STEPS="${CHECKPOINTING_STEPS:-${CFG_CHECKPOINTING_STEPS:-500}}"
-SKIP_FINAL_INFERENCE="${SKIP_FINAL_INFERENCE:-${CFG_SKIP_FINAL_INFERENCE:-1}}"
 RANDOM_FLIP="${RANDOM_FLIP:-${CFG_RANDOM_FLIP:-0}}"
 CENTER_CROP="${CENTER_CROP:-${CFG_CENTER_CROP:-0}}"
 OFFLOAD="${OFFLOAD:-${CFG_OFFLOAD:-1}}"
@@ -387,60 +359,12 @@ RESUME_FROM_CHECKPOINT="${RESUME_FROM_CHECKPOINT:-${CFG_RESUME_FROM_CHECKPOINT:-
 GPU_DEVICES="${CFG_GPU_DEVICES:-${GPU_DEVICES:-${CUDA_VISIBLE_DEVICES:-}}}"
 GPU_DEVICES="${GPU_DEVICES// /}"
 
-TEST_DATA_JSON="${TEST_DATA_JSON:-${CFG_TEST_DATA_JSON:-}}"
-TEST_NAME="${TEST_NAME:-${CFG_TEST_NAME:-}}"
-TEST_NAME="${TEST_NAME%.json}"
-INFERENCE_OUTPUT_DIR="${INFERENCE_OUTPUT_DIR:-${CFG_INFERENCE_OUTPUT_DIR:-}}"
-EVALUATION_OUTPUT_DIR="${EVALUATION_OUTPUT_DIR:-${CFG_EVALUATION_OUTPUT_DIR:-}}"
-
-INFERENCE_MODE="${INFERENCE_MODE:-${CFG_INFERENCE_MODE:-plain}}"
-INFERENCE_CROP_MODE="${INFERENCE_CROP_MODE:-${CFG_INFERENCE_CROP_MODE:-full}}"
-INFERENCE_RESOLUTION="${INFERENCE_RESOLUTION:-${CFG_INFERENCE_RESOLUTION:-$RESOLUTION}}"
-INFERENCE_GUIDANCE_SCALE="${INFERENCE_GUIDANCE_SCALE:-${CFG_INFERENCE_GUIDANCE_SCALE:-4.0}}"
-INFERENCE_NUM_INFERENCE_STEPS="${INFERENCE_NUM_INFERENCE_STEPS:-${CFG_INFERENCE_NUM_INFERENCE_STEPS:-50}}"
-if [[ "$MIXED_PRECISION" == "no" ]]; then
-  DEFAULT_INFERENCE_DTYPE="fp32"
-else
-  DEFAULT_INFERENCE_DTYPE="$MIXED_PRECISION"
-fi
-INFERENCE_DTYPE="${INFERENCE_DTYPE:-${CFG_INFERENCE_DTYPE:-$DEFAULT_INFERENCE_DTYPE}}"
-INFERENCE_DEVICE="${INFERENCE_DEVICE:-${CFG_INFERENCE_DEVICE:-cuda}}"
-INFERENCE_SEED="${INFERENCE_SEED:-${CFG_INFERENCE_SEED:-$SEED}}"
-INFERENCE_CPU_OFFLOAD="${INFERENCE_CPU_OFFLOAD:-${CFG_INFERENCE_CPU_OFFLOAD:-1}}"
-EVALUATION_DEVICE="${EVALUATION_DEVICE:-${CFG_EVALUATION_DEVICE:-auto}}"
-EVALUATION_GPU_DEVICES="${EVALUATION_GPU_DEVICES:-${CFG_EVALUATION_GPU_DEVICES:-$GPU_DEVICES}}"
-EVALUATION_FR_RESIZE="${EVALUATION_FR_RESIZE:-${CFG_EVALUATION_FR_RESIZE:-to_ref}}"
-
-# Backward compatibility for old configs that used crop mode values in inference_mode.
-if [[ "$INFERENCE_MODE" == "full" || "$INFERENCE_MODE" == "center_crop" || "$INFERENCE_MODE" == "random_crop" ]]; then
-  INFERENCE_CROP_MODE="$INFERENCE_MODE"
-  INFERENCE_MODE="plain"
-fi
-
 if [[ -n "$INSTANCE_PROMPT_NAME" ]]; then
   INSTANCE_PROMPT="$(resolve_prompt_by_name "$PROMPTS_JSON" "$INSTANCE_PROMPT_NAME")"
 fi
 
-if [[ -n "$VALIDATION_PROMPT_NAME" ]]; then
-  VALIDATION_PROMPT="$(resolve_prompt_by_name "$PROMPTS_JSON" "$VALIDATION_PROMPT_NAME")"
-fi
-
-if [[ -n "$FINAL_VALIDATION_PROMPT_NAME" ]]; then
-  FINAL_VALIDATION_PROMPT="$(resolve_prompt_by_name "$PROMPTS_JSON" "$FINAL_VALIDATION_PROMPT_NAME")"
-fi
-
-RUN_POST_EVAL=0
-if [[ -n "$TEST_DATA_JSON" || -n "$TEST_NAME" || -n "$INFERENCE_OUTPUT_DIR" || -n "$EVALUATION_OUTPUT_DIR" ]]; then
-  RUN_POST_EVAL=1
-fi
-
 if [[ -z "$TRAIN_DATA_JSON" ]]; then
   echo "ERROR: set TRAIN_DATA_JSON or provide it in $OPTIONS_JSON." >&2
-  exit 1
-fi
-
-if [[ -n "$VALIDATION_PROMPT" && -z "$VALIDATION_IMAGE" ]]; then
-  echo "ERROR: VALIDATION_IMAGE is required when VALIDATION_PROMPT is set." >&2
   exit 1
 fi
 
@@ -521,33 +445,6 @@ if [[ "$NUM_PROCESSES" -gt 1 || "$NUM_MACHINES" -gt 1 ]]; then
   USE_DISTRIBUTED=1
 fi
 
-if [[ "$RUN_POST_EVAL" == "1" ]]; then
-  if [[ -z "$TEST_DATA_JSON" || -z "$TEST_NAME" || -z "$INFERENCE_OUTPUT_DIR" || -z "$EVALUATION_OUTPUT_DIR" ]]; then
-    echo "ERROR: to run post-train inference/evaluation, set TEST_DATA_JSON, TEST_NAME, INFERENCE_OUTPUT_DIR, and EVALUATION_OUTPUT_DIR." >&2
-    exit 1
-  fi
-
-  if [[ ! -f "$TEST_DATA_JSON" ]]; then
-    echo "ERROR: TEST_DATA_JSON not found: $TEST_DATA_JSON" >&2
-    exit 1
-  fi
-
-  if [[ "$TEST_NAME" == */* ]]; then
-    echo "ERROR: TEST_NAME must not contain '/'." >&2
-    exit 1
-  fi
-
-  if [[ "$INFERENCE_MODE" != "plain" && "$INFERENCE_MODE" != "canvas_tile" ]]; then
-    echo "ERROR: INFERENCE_MODE must be one of plain, canvas_tile. Got: $INFERENCE_MODE" >&2
-    exit 1
-  fi
-
-  if [[ "$INFERENCE_CROP_MODE" != "full" && "$INFERENCE_CROP_MODE" != "center_crop" && "$INFERENCE_CROP_MODE" != "random_crop" ]]; then
-    echo "ERROR: INFERENCE_CROP_MODE must be one of full, center_crop, random_crop. Got: $INFERENCE_CROP_MODE" >&2
-    exit 1
-  fi
-fi
-
 if [[ -n "$RESUME_FROM_CHECKPOINT" ]]; then
   RESUME_PATH="$RESUME_FROM_CHECKPOINT"
   if [[ "$RESUME_FROM_CHECKPOINT" != "latest" && ! "$RESUME_FROM_CHECKPOINT" = /* ]]; then
@@ -603,6 +500,10 @@ ARGS=(
   --checkpointing_steps "$CHECKPOINTING_STEPS"
 )
 
+if [[ -n "$Q_METRIC_WEIGHTS" ]]; then
+  ARGS+=(--q_metric_weights "$Q_METRIC_WEIGHTS")
+fi
+
 if [[ -n "$REVISION" ]]; then
   ARGS+=(--revision "$REVISION")
 fi
@@ -611,20 +512,28 @@ if [[ -n "$VARIANT" ]]; then
   ARGS+=(--variant "$VARIANT")
 fi
 
+if [[ -n "$PIX_LORA_WEIGHTS_PATH" ]]; then
+  ARGS+=(--pix_lora_weights_path "$PIX_LORA_WEIGHTS_PATH")
+fi
+
+if [[ -n "$PIX_ADAPTER_NAME" ]]; then
+  ARGS+=(--pix_adapter_name "$PIX_ADAPTER_NAME")
+fi
+
+if [[ -n "$SEM_ADAPTER_NAME" ]]; then
+  ARGS+=(--sem_adapter_name "$SEM_ADAPTER_NAME")
+fi
+
+if [[ -n "$PIX_ADAPTER_SCALE" ]]; then
+  ARGS+=(--pix_adapter_scale "$PIX_ADAPTER_SCALE")
+fi
+
+if [[ -n "$SEM_ADAPTER_SCALE" ]]; then
+  ARGS+=(--sem_adapter_scale "$SEM_ADAPTER_SCALE")
+fi
+
 if [[ -n "$LORA_WEIGHTS_PATH" ]]; then
   ARGS+=(--lora_weights_path "$LORA_WEIGHTS_PATH")
-fi
-
-if [[ -n "$VALIDATION_PROMPT" ]]; then
-  ARGS+=(--validation_prompt "$VALIDATION_PROMPT" --validation_image "$VALIDATION_IMAGE")
-fi
-
-if [[ -n "$FINAL_VALIDATION_PROMPT" ]]; then
-  ARGS+=(--final_validation_prompt "$FINAL_VALIDATION_PROMPT")
-fi
-
-if [[ "$SKIP_FINAL_INFERENCE" == "1" ]]; then
-  ARGS+=(--skip_final_inference)
 fi
 
 if [[ "$RANDOM_FLIP" == "1" ]]; then
@@ -659,12 +568,6 @@ echo "PROMPTS_JSON      : $PROMPTS_JSON"
 if [[ -n "$INSTANCE_PROMPT_NAME" ]]; then
   echo "INSTANCE_PROMPT_NAME : $INSTANCE_PROMPT_NAME"
 fi
-if [[ -n "$VALIDATION_PROMPT_NAME" ]]; then
-  echo "VALIDATION_PROMPT_NAME : $VALIDATION_PROMPT_NAME"
-fi
-if [[ -n "$FINAL_VALIDATION_PROMPT_NAME" ]]; then
-  echo "FINAL_VALID_PROMPT_NAME : $FINAL_VALIDATION_PROMPT_NAME"
-fi
 echo "LORA_WEIGHTS_PATH : ${LORA_WEIGHTS_PATH:-<none>}"
 echo "RESUME_CHECKPOINT : ${RESUME_FROM_CHECKPOINT:-<none>}"
 echo "GPU_DEVICES       : ${GPU_DEVICES:-<default>}"
@@ -680,15 +583,10 @@ else
   echo "TRAIN_LAUNCHER    : python"
 fi
 echo "NR_IQA_METRIC     : $NR_IQA_METRIC"
-echo "REPORT_TO         : $REPORT_TO"
-if [[ "$RUN_POST_EVAL" == "1" ]]; then
-  echo "TEST_DATA_JSON    : $TEST_DATA_JSON"
-  echo "TEST_NAME         : $TEST_NAME"
-  echo "INFER_OUT_DIR     : $INFERENCE_OUTPUT_DIR"
-  echo "EVAL_OUT_DIR      : $EVALUATION_OUTPUT_DIR"
-  echo "INFER_MODE        : $INFERENCE_MODE"
-  echo "INFER_CROP_MODE   : $INFERENCE_CROP_MODE"
+if [[ -n "$Q_METRIC_WEIGHTS" ]]; then
+  echo "Q_METRIC_WEIGHTS  : $Q_METRIC_WEIGHTS"
 fi
+echo "REPORT_TO         : $REPORT_TO"
 echo
 
 if [[ "$USE_DISTRIBUTED" == "1" ]]; then
@@ -706,74 +604,4 @@ if [[ "$USE_DISTRIBUTED" == "1" ]]; then
   run_flux2_accelerate "${LAUNCH_ARGS[@]}" "$TRAIN_SCRIPT" "${ARGS[@]}"
 else
   run_flux2_python "$TRAIN_SCRIPT" "${ARGS[@]}"
-fi
-
-if [[ "$RUN_POST_EVAL" == "1" ]]; then
-  EVAL_SCRIPT="$PROJECT_DIR/eval/03_evaluation.py"
-  if [[ ! -f "$EVAL_SCRIPT" ]]; then
-    echo "ERROR: evaluation script not found: $EVAL_SCRIPT" >&2
-    exit 1
-  fi
-
-  mkdir -p "$INFERENCE_OUTPUT_DIR" "$EVALUATION_OUTPUT_DIR"
-
-  INFERENCE_RUN_DIR="$INFERENCE_OUTPUT_DIR/$TEST_NAME"
-  INFERENCE_OUTPUT_JSON="$INFERENCE_OUTPUT_DIR/$TEST_NAME.json"
-  EVALUATION_OUTPUT_JSON="$EVALUATION_OUTPUT_DIR/$TEST_NAME.json"
-
-  INFER_ARGS=(
-    "$STAGE2_DIR/models/lora_inference.py"
-    --pretrained_model_name_or_path "$MODEL_PATH"
-    --input_json "$TEST_DATA_JSON"
-    --output_dir "$INFERENCE_RUN_DIR"
-    --output_json "$INFERENCE_OUTPUT_JSON"
-    --lora_weights_path "$OUTPUT_DIR"
-    --mode "$INFERENCE_MODE"
-    --crop_mode "$INFERENCE_CROP_MODE"
-    --resolution "$INFERENCE_RESOLUTION"
-    --guidance_scale "$INFERENCE_GUIDANCE_SCALE"
-    --num_inference_steps "$INFERENCE_NUM_INFERENCE_STEPS"
-    --dtype "$INFERENCE_DTYPE"
-    --device "$INFERENCE_DEVICE"
-    --seed "$INFERENCE_SEED"
-  )
-
-  if [[ -n "$INSTANCE_PROMPT" ]]; then
-    INFER_ARGS+=(--default_prompt "$INSTANCE_PROMPT")
-  fi
-
-  if [[ -n "$REVISION" ]]; then
-    INFER_ARGS+=(--revision "$REVISION")
-  fi
-
-  if [[ -n "$VARIANT" ]]; then
-    INFER_ARGS+=(--variant "$VARIANT")
-  fi
-
-  if [[ "$INFERENCE_CPU_OFFLOAD" == "1" ]]; then
-    INFER_ARGS+=(--cpu_offload)
-  fi
-
-  echo "Running post-train inference..."
-  echo "INFER_IMAGES_DIR  : $INFERENCE_RUN_DIR"
-  echo "INFER_OUTPUT_JSON : $INFERENCE_OUTPUT_JSON"
-  echo
-  run_flux2_python "${INFER_ARGS[@]}"
-
-  EVAL_ARGS=(
-    "$EVAL_SCRIPT"
-    --input "$INFERENCE_OUTPUT_JSON"
-    --out "$EVALUATION_OUTPUT_JSON"
-    --device "$EVALUATION_DEVICE"
-    --fr_resize "$EVALUATION_FR_RESIZE"
-  )
-
-  if [[ -n "$EVALUATION_GPU_DEVICES" ]]; then
-    EVAL_ARGS+=(--gpu_devices "$EVALUATION_GPU_DEVICES")
-  fi
-
-  echo "Running evaluation..."
-  echo "EVAL_OUTPUT_JSON  : $EVALUATION_OUTPUT_JSON"
-  echo
-  run_eval_python "${EVAL_ARGS[@]}"
 fi

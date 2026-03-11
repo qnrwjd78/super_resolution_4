@@ -8,7 +8,6 @@ def save_model_card(
     images=None,
     base_model: str = None,
     instance_prompt=None,
-    validation_prompt=None,
     repo_folder=None,
     fp8_training=False,
 ):
@@ -16,9 +15,7 @@ def save_model_card(
     if images is not None:
         for i, image in enumerate(images):
             image.save(os.path.join(repo_folder, f"image_{i}.png"))
-            widget_dict.append(
-                {"text": validation_prompt if validation_prompt else " ", "output": {"url": f"image_{i}.png"}}
-            )
+            widget_dict.append({"text": instance_prompt if instance_prompt else " ", "output": {"url": f"image_{i}.png"}})
 
     model_description = f"""
 # Flux.2 [Klein] DreamBooth LoRA - {repo_id}
@@ -48,7 +45,7 @@ from diffusers import AutoPipelineForText2Image
 import torch
 pipeline = AutoPipelineForText2Image.from_pretrained("black-forest-labs/FLUX.2", torch_dtype=torch.bfloat16).to('cuda')
 pipeline.load_lora_weights('{repo_id}', weight_name='pytorch_lora_weights.safetensors')
-image = pipeline('{validation_prompt if validation_prompt else instance_prompt}').images[0]
+image = pipeline('{instance_prompt}').images[0]
 ```
 
 For more details, including weighting, merging and fusing LoRAs, check the [documentation on loading LoRAs in diffusers](https://huggingface.co/docs/diffusers/main/en/using-diffusers/loading_adapters)
@@ -78,4 +75,3 @@ Please adhere to the licensing terms as described [here](https://huggingface.co/
 
     model_card = populate_model_card(model_card, tags=tags)
     model_card.save(os.path.join(repo_folder, "README.md"))
-

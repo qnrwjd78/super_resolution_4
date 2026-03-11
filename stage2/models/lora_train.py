@@ -76,7 +76,6 @@ from diffusers.utils.torch_utils import is_compiled_module
 
 from lora_data import DreamBoothDataset, collate_fn
 from lora_hub import save_model_card
-from lora_validation import log_validation
 
 if getattr(torch, "distributed", None) is not None:
     import torch.distributed as dist
@@ -109,6 +108,155 @@ def compute_empirical_mu(image_seq_len: int, num_steps: int) -> float:
     a = (m_200 - m_10) / 190.0
     b = m_200 - 200.0 * a
     return float(a * num_steps + b)
+
+
+def _parse_csv_str(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        items = value
+    else:
+        items = str(value).split(",")
+    return [str(item).strip() for item in items if str(item).strip()]
+
+
+def _parse_csv_floats(value: Any) -> list[float]:
+    values = _parse_csv_str(value)
+    try:
+        return [float(item) for item in values]
+    except ValueError as exc:
+        raise ValueError(f"Expected comma-separated float values, got: {value!r}") from exc
+
+
+def _expand_q_metric_values(
+    values: list[float],
+    count: int,
+    default: float,
+    field_name: str,
+) -> list[float]:
+    if count < 1:
+        raise ValueError("Q-loss metric count must be >= 1.")
+    if not values:
+        return [default] * count
+    if len(values) == 1 and count > 1:
+        return values * count
+    if len(values) != count:
+        raise ValueError(
+            f"`{field_name}` expects either 1 value or {count} values to match `nr_iqa_metric`, got {len(values)}."
+        )
+    return values
+
+
+def _default_q_metric_scale(metric_name: str) -> float:
+    metric_key = str(metric_name).strip().lower()
+    if metric_key == "niqe":
+        return 10.0
+    if metric_key == "musiq":
+        return 100.0
+    return 1.0
+
+
+def _reduce_q_score_per_sample(q_score: Any, batch_size: int, device: torch.device) -> torch.Tensor:
+    if isinstance(q_score, tuple):
+        q_score = q_score[0]
+    if not torch.is_tensor(q_score):
+        q_score = torch.as_tensor(q_score, device=device, dtype=torch.float32)
+    else:
+        q_score = q_score.to(device=device, dtype=torch.float32)
+
+    if q_score.ndim == 0:
+        return q_score.reshape(1).expand(batch_size)
+    if q_score.ndim == 1:
+        if q_score.shape[0] == 1 and batch_size > 1:
+            return q_score.expand(batch_size)
+        if q_score.shape[0] != batch_size:
+            raise ValueError(f"Q-loss metric returned shape {tuple(q_score.shape)} for batch_size={batch_size}.")
+        return q_score
+
+    q_score = q_score.reshape(q_score.shape[0], -1).mean(dim=1)
+    if q_score.shape[0] == 1 and batch_size > 1:
+        return q_score.expand(batch_size)
+    if q_score.shape[0] != batch_size:
+        raise ValueError(f"Q-loss metric returned shape {tuple(q_score.shape)} for batch_size={batch_size}.")
+    return q_score
+
+
+def _build_q_metric_specs(args: Any, device: torch.device) -> list[dict[str, Any]]:
+    metric_aliases = {
+        "l2": "l2",
+        "mse": "l2",
+        "l_2": "l2",
+        "niqe": "niqe",
+        "maniqa": "maniqa",
+        "musiq": "musiq",
+        "lpips": "lpips",
+        "dists": "dists",
+    }
+    clip_aliases = {"clip-iqa", "clip_iqa", "clipiqa"}
+
+    metric_labels = _parse_csv_str(getattr(args, "nr_iqa_metric", None))
+    if not metric_labels:
+        raise ValueError("`--nr_iqa_metric` must contain at least one metric.")
+
+    weights = _expand_q_metric_values(
+        _parse_csv_floats(getattr(args, "q_metric_weights", None)),
+        len(metric_labels),
+        1.0,
+        "q_metric_weights",
+    )
+    try:
+        from local_iqa import create_q_metric
+    except Exception:
+        project_root = Path(__file__).resolve().parents[2]
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+        try:
+            from local_iqa import create_q_metric
+        except Exception as nested_exc:
+            raise RuntimeError("NR-IQA loss requested but `local_iqa` is not available in the runtime.") from nested_exc
+
+    name_counts: dict[str, int] = {}
+    specs: list[dict[str, Any]] = []
+    for idx, raw_label in enumerate(metric_labels):
+        metric_key = raw_label.strip().lower()
+        if metric_key in clip_aliases:
+            raise ValueError(
+                "nr_iqa_metric='clipiqa' is excluded in this trainer. "
+                "Use one of: L2, NIQE, ManIQA, MUSIQ, LPIPS, DISTS."
+            )
+        metric_name = metric_aliases.get(metric_key)
+        if metric_name is None:
+            supported = "NIQE, ManIQA, MUSIQ, L2, LPIPS, DISTS"
+            raise ValueError(
+                f"Unsupported nr_iqa_metric='{raw_label}'. "
+                f"Supported labels: {supported}"
+            )
+
+        q_metric_spec = create_q_metric(metric_name, device=device)
+        count = name_counts.get(q_metric_spec.name, 0) + 1
+        name_counts[q_metric_spec.name] = count
+        log_name = q_metric_spec.name if count == 1 else f"{q_metric_spec.name}_{count}"
+        specs.append(
+            {
+                "name": q_metric_spec.name,
+                "log_name": log_name,
+                "module": q_metric_spec.module,
+                "weight": float(weights[idx]),
+                "scale": _default_q_metric_scale(q_metric_spec.name),
+                "lower_better": bool(q_metric_spec.lower_better),
+                "requires_reference": bool(q_metric_spec.requires_reference),
+            }
+        )
+
+    logger.info(
+        "Q-loss metrics enabled: %s",
+        ", ".join(
+            f"{spec['name']}(weight={spec['weight']}, scale={spec['scale']}, lower_better={spec['lower_better']}, "
+            f"requires_reference={spec['requires_reference']})"
+            for spec in specs
+        ),
+    )
+    return specs
 
 
 def build_inference_timestep_pool(
@@ -244,7 +392,6 @@ def main(args):
             "You cannot use both --report_to=wandb and --hub_token due to a security risk of exposing your token."
             " Please use `hf auth login` to authenticate with the Hub."
         )
-
     if torch.backends.mps.is_available() and args.mixed_precision == "bf16":
         # due to pytorch#99272, MPS does not yet support bfloat16.
         raise ValueError(
@@ -709,17 +856,6 @@ def main(args):
                 args.instance_prompt, text_encoding_pipeline
             )
 
-    if args.validation_prompt is not None:
-        validation_image = load_image(args.validation_image).convert("RGB")
-        validation_kwargs = {"image": validation_image}
-        with offload_models(text_encoding_pipeline, device=accelerator.device, offload=args.offload):
-            validation_kwargs["prompt_embeds"], _text_ids = compute_text_embeddings(
-                args.validation_prompt, text_encoding_pipeline
-            )
-            validation_kwargs["negative_prompt_embeds"], _text_ids = compute_text_embeddings(
-                "", text_encoding_pipeline
-            )
-
     # Init FSDP for text encoder
     if args.fsdp_text_encoder:
         fsdp_kwargs = get_fsdp_kwargs_from_accelerator(accelerator)
@@ -1014,7 +1150,6 @@ def main(args):
                 use_nr_iqa_loss = args.use_nr_iqa_loss
                 lambda_q = args.lambda_q
                 q_sigma_max = args.q_sigma_max
-                nr_iqa_metric_raw = args.nr_iqa_metric
                 q_loss_active = use_nr_iqa_loss and lambda_q != 0.0
 
                 # Keep VAE on GPU through backward only when Q-loss is active with offload.
@@ -1023,58 +1158,13 @@ def main(args):
                     if q_loss_active and args.offload
                     else nullcontext()
                 )
+                
                 with qloss_vae_scope:
                     loss_q = torch.zeros([], device=model_input.device, dtype=loss_fm.dtype)
+                    q_metric_log_values: dict[str, torch.Tensor] = {}
                     if q_loss_active:
-                        if not hasattr(args, "_q_metric"):
-                            metric_key = nr_iqa_metric_raw.strip().lower()
-                            metric_aliases = {
-                                "l2": "l2",
-                                "mse": "l2",
-                                "l_2": "l2",
-                                "niqe": "niqe",
-                                "maniqa": "maniqa",
-                                "musiq": "musiq",
-                            }
-                            clip_aliases = {"clip-iqa", "clip_iqa", "clipiqa"}
-                            if metric_key in clip_aliases:
-                                raise ValueError(
-                                    "nr_iqa_metric='clipiqa' is excluded in this trainer. "
-                                    "Use one of: L2, NIQE, ManIQA, MUSIQ."
-                                )
-
-                            metric_name = metric_aliases.get(metric_key)
-                            if metric_name is None:
-                                supported = "NIQE, ManIQA, MUSIQ, L2"
-                                raise ValueError(
-                                    f"Unsupported nr_iqa_metric='{nr_iqa_metric_raw}'. "
-                                    f"Supported labels: {supported}"
-                                )
-
-                            try:
-                                from local_iqa import create_q_metric
-                            except Exception as exc:
-                                project_root = Path(__file__).resolve().parents[2]
-                                if str(project_root) not in sys.path:
-                                    sys.path.insert(0, str(project_root))
-                                try:
-                                    from local_iqa import create_q_metric
-                                except Exception as nested_exc:
-                                    raise RuntimeError(
-                                        "NR-IQA loss requested but `local_iqa` is not available in the runtime."
-                                    ) from nested_exc
-
-                            q_metric_spec = create_q_metric(metric_name, device=accelerator.device)
-                            args._q_metric = q_metric_spec.module
-                            args._q_metric_name = q_metric_spec.name
-                            args._q_metric_lower_better = bool(q_metric_spec.lower_better)
-                            args._q_metric_requires_reference = bool(q_metric_spec.requires_reference)
-                            logger.info(
-                                "Q-loss metric enabled (local_iqa): %s (lower_better=%s, requires_reference=%s)",
-                                args._q_metric_name,
-                                args._q_metric_lower_better,
-                                args._q_metric_requires_reference,
-                            )
+                        if not hasattr(args, "_q_metric_specs"):
+                            args._q_metric_specs = _build_q_metric_specs(args, accelerator.device)
 
                         sigma_per_sample = sigmas.reshape(sigmas.shape[0], -1)[:, 0]
                         q_mask = (sigma_per_sample <= q_sigma_max).float()
@@ -1087,44 +1177,28 @@ def main(args):
 
                             sr_hat = vae.decode(x0_hat.to(dtype=vae.dtype), return_dict=False)[0]
                             sr_hat = (sr_hat / 2 + 0.5).clamp(0, 1)
-                            if getattr(args, "_q_metric_requires_reference", False):
+                            target_pixels = None
+                            if any(spec["requires_reference"] for spec in args._q_metric_specs):
                                 target_pixels = (pixel_values / 2 + 0.5).clamp(0, 1)
-                                q_score = args._q_metric(sr_hat.float(), target_pixels.float())
-                            else:
-                                q_score = args._q_metric(sr_hat.float())
-
-                            if isinstance(q_score, tuple):
-                                q_score = q_score[0]
-                            if not torch.is_tensor(q_score):
-                                q_score = torch.as_tensor(q_score, device=sr_hat.device, dtype=torch.float32)
-                            else:
-                                q_score = q_score.to(device=sr_hat.device, dtype=torch.float32)
-
                             batch_size = sr_hat.shape[0]
-                            if q_score.ndim == 0:
-                                q_score = q_score.reshape(1).expand(batch_size)
-                            elif q_score.ndim == 1:
-                                if q_score.shape[0] == 1 and batch_size > 1:
-                                    q_score = q_score.expand(batch_size)
-                                elif q_score.shape[0] != batch_size:
-                                    raise ValueError(
-                                        f"Q-loss metric returned shape {tuple(q_score.shape)} for batch_size={batch_size}."
-                                    )
-                            else:
-                                q_score = q_score.reshape(q_score.shape[0], -1).mean(dim=1)
-                                if q_score.shape[0] == 1 and batch_size > 1:
-                                    q_score = q_score.expand(batch_size)
-                                elif q_score.shape[0] != batch_size:
-                                    raise ValueError(
-                                        f"Q-loss metric returned shape {tuple(q_score.shape)} for batch_size={batch_size}."
-                                    )
+                            q_weighted_terms: list[torch.Tensor] = []
+                            for spec in args._q_metric_specs:
+                                if spec["requires_reference"]:
+                                    q_score = spec["module"](sr_hat.float(), target_pixels.float())
+                                else:
+                                    q_score = spec["module"](sr_hat.float())
 
-                            q_score = (q_score * q_mask).sum() / q_mask.sum().clamp_min(1.0)
-                            # lower-better metrics should be minimized, higher-better metrics maximized.
-                            if args._q_metric_lower_better:
-                                loss_q = q_score.to(dtype=loss_fm.dtype)
-                            else:
-                                loss_q = -q_score.to(dtype=loss_fm.dtype)
+                                q_score = _reduce_q_score_per_sample(q_score, batch_size=batch_size, device=sr_hat.device)
+                                q_score = (q_score * q_mask).sum() / q_mask.sum().clamp_min(1.0)
+                                q_loss_metric = q_score if spec["lower_better"] else -q_score
+                                q_scaled = q_loss_metric / spec["scale"]
+                                q_weighted = spec["weight"] * q_scaled
+                                q_weighted_terms.append(q_weighted.to(dtype=loss_fm.dtype))
+                                q_metric_log_values[f"q_{spec['log_name']}"] = q_score.detach()
+                                q_metric_log_values[f"q_loss_{spec['log_name']}"] = q_scaled.detach()
+
+                            if q_weighted_terms:
+                                loss_q = torch.stack(q_weighted_terms).sum()
 
                     loss = lambda_fm * loss_fm + lambda_q * loss_q
                     accelerator.backward(loss)
@@ -1168,36 +1242,19 @@ def main(args):
                         accelerator.save_state(save_path)
                         logger.info(f"Saved state to {save_path}")
 
-            logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+            logs = {
+                "loss": loss.detach().item(),
+                "lr": lr_scheduler.get_last_lr()[0],
+                "loss_fm": loss_fm.detach().item(),
+                "loss_q": loss_q.detach().item(),
+            }
+            for key, value in q_metric_log_values.items():
+                logs[key] = value.item()
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
 
             if global_step >= args.max_train_steps:
                 break
-
-        if accelerator.is_main_process:
-            if args.validation_prompt is not None and epoch % args.validation_epochs == 0:
-                # create pipeline
-                pipeline = Flux2KleinPipeline.from_pretrained(
-                    args.pretrained_model_name_or_path,
-                    text_encoder=None,
-                    tokenizer=None,
-                    transformer=unwrap_model(transformer),
-                    revision=args.revision,
-                    variant=args.variant,
-                    torch_dtype=weight_dtype,
-                )
-                images = log_validation(
-                    pipeline=pipeline,
-                    args=args,
-                    accelerator=accelerator,
-                    pipeline_args=validation_kwargs,
-                    epoch=epoch,
-                    torch_dtype=weight_dtype,
-                )
-
-                del pipeline
-                free_memory()
 
     # Save the lora layers
     accelerator.wait_for_everyone()
@@ -1247,50 +1304,11 @@ def main(args):
             **collate_lora_metadata_for_adapter(modules_to_save, trainable_adapter_name),
         )
 
-        images = []
-        run_validation = (args.validation_prompt and args.num_validation_images > 0) or (args.final_validation_prompt)
-        should_run_final_inference = not args.skip_final_inference and run_validation
-        if should_run_final_inference:
-            pipeline = Flux2KleinPipeline.from_pretrained(
-                args.pretrained_model_name_or_path,
-                revision=args.revision,
-                variant=args.variant,
-                torch_dtype=weight_dtype,
-            )
-            # load attention processors
-            if sem_stage2_mode:
-                pipeline.load_lora_weights(pix_lora_source, adapter_name=pix_adapter_name)
-                pipeline.load_lora_weights(args.output_dir, adapter_name=sem_adapter_name)
-                set_active_lora_adapters(
-                    pipeline,
-                    [pix_adapter_name, sem_adapter_name],
-                    [args.pix_adapter_scale, args.sem_adapter_scale],
-                )
-            else:
-                pipeline.load_lora_weights(args.output_dir)
-
-            # run inference
-            images = []
-            if args.validation_prompt and args.num_validation_images > 0:
-                images = log_validation(
-                    pipeline=pipeline,
-                    args=args,
-                    accelerator=accelerator,
-                    pipeline_args=validation_kwargs,
-                    epoch=epoch,
-                    is_final_validation=True,
-                    torch_dtype=weight_dtype,
-                )
-            del pipeline
-            free_memory()
-
-        validation_prompt = args.validation_prompt if args.validation_prompt else args.final_validation_prompt
         save_model_card(
             (args.hub_model_id or Path(args.output_dir).name) if not args.push_to_hub else repo_id,
-            images=images,
+            images=[],
             base_model=args.pretrained_model_name_or_path,
             instance_prompt=args.instance_prompt,
-            validation_prompt=validation_prompt,
             repo_folder=args.output_dir,
             fp8_training=args.do_fp8_training,
         )
