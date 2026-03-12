@@ -13,3 +13,6 @@
 [submodule "stage1/repos/DAT"]
 	path = stage1/repos/DAT
 	url = https://github.com/zhengchen1999/DAT.git
+[submodule "stage2/repos/AESOP-SR.git"]
+	path = stage2/repos/AESOP-SR.git
+	url = https://github.com/2minkyulee/AESOP-SR.git

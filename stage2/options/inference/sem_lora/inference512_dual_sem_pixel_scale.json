@@ -1,17 +1,34 @@
 {
   "pretrained_model_name_or_path": "/sr/code/sr/stage2/weights/flux2-klein-base-9b",
-  "pix_lora_weights_path": "/sr/code/sr/stage2/outputs/train/base_512/version_2/128_256/checkpoint-30000/",
+  "pix_lora_weights_path": "/sr/code/sr/stage2/outputs/train/base_512/version_2/l2_128_256_only/checkpoint-30000/",
   "pix_adapter_scale": 1.0,
   "sem_adapter_scale": 1.0,
-  "model_path": "/sr/code/sr/stage2/outputs/train/sem/latent",
+  "model_path": "/sr/code/sr/stage2/outputs/train/sem/pixel",
   "model_names": [
-    "dists_musiq", "dists_niqe", "lpips_dists", "lpips_maniqa"
+    "dists_maniqa_w1_0p1",
+    "dists_maniqa_w1_0p3",
+    "dists_musiq_w1_0p1",
+    "dists_musiq_w1_0p3",
+    "dists_niqe_w1_0p1",
+    "dists_niqe_w1_0p3",
+    "lpips_maniqa_w1_0p1",
+    "lpips_maniqa_w1_0p3",
+    "lpips_musiq_w1_0p1",
+    "lpips_musiq_w1_0p3",
+    "lpips_niqe_w1_0p1",
+    "lpips_niqe_w1_0p3",
+    "dists_maniqa_w1_0p5",
+    "dists_musiq_w1_0p5",
+    "dists_niqe_w1_0p5",
+    "lpips_maniqa_w1_0p5",
+    "lpips_musiq_w1_0p5",
+    "lpips_niqe_w1_0p5"
   ],
   "lora_weights": [
-    "checkpoint-8000"
+    "checkpoint-2000"
   ],
   "input_json": "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/result_sample.json",
-  "output_dir": "/sr/code/sr/stage2/outputs/inference/sem/latent",
+  "output_dir": "/sr/code/sr/stage2/outputs/inference/sem/crop/scale/pixel",
   "hr_dir": "/sr/data/DIV2K/val/HR",
   "output_path": "output_path",
   "evaluation_output_dir": "eval",
@@ -23,13 +40,13 @@
   "default_prompt": "",
   "revision": null,
   "variant": null,
-  "crop_mode": "full",
+  "crop_mode": "center_crop",
   "resolution": 512,
-  "mode": "canvas_tile",
+  "mode": "plain",
   "tile_size_px": 512,
   "tile_overlap_ratio": 0.5,
   "tile_batch_size": 32,
-  "sample_batch_size": 5,
+  "sample_batch_size": 1,
   "tile_sigma_ratio": 0.15,
   "canvas_padding_mode": "reflect",
   "canvas_padding_position": "center",
@@ -40,5 +57,5 @@
   "device": "cuda",
   "seed": 0,
   "cpu_offload": true,
-  "gpu_devices": "5,6"
+  "gpu_devices": "7"
 }

@@ -86,6 +86,47 @@ check_min_version("0.37.0.dev0")
 logger = get_logger(__name__)
 
 
+def _load_aesop_autoencoder(args, device: torch.device):
+    metric_labels = {label.strip().lower() for label in _parse_csv_str(getattr(args, "nr_iqa_metric", None))}
+    if "aesop" not in metric_labels:
+        return None
+    if not args.aesop_autoencoder_path:
+        raise ValueError("`nr_iqa_metric` includes `aesop`, but `--aesop_autoencoder_path` is missing.")
+
+    aesop_root = (
+        Path(__file__).resolve().parents[1] / "repos" / "AESOP-SR" / "AESOP"
+    )
+    if not aesop_root.exists():
+        raise FileNotFoundError(f"AESOP repo not found: {aesop_root}")
+
+    aesop_root_str = str(aesop_root)
+    if aesop_root_str not in sys.path:
+        sys.path.insert(0, aesop_root_str)
+
+    from basicsr.archs.autoencoder_arch import AutoEncoder_RRDBNet
+
+    ae_net = AutoEncoder_RRDBNet(
+        enc_opt={"placeholder": 0},
+        dec_opt={
+            "type": "RRDBNet",
+            "num_in_ch": 3,
+            "num_out_ch": 3,
+            "num_feat": 64,
+            "num_block": 23,
+            "num_grow_ch": 32,
+        },
+    )
+
+    checkpoint = torch.load(args.aesop_autoencoder_path, map_location="cpu")
+    state_dict = checkpoint[args.aesop_autoencoder_key]
+    ae_net.load_state_dict(state_dict)
+    ae_net.eval()
+    ae_net.requires_grad_(False)
+    ae_net.to(device=device, dtype=torch.float32)
+    logger.info("Loaded AESOP autoencoder from %s", args.aesop_autoencoder_path)
+    return ae_net
+
+
 def module_filter_fn(mod: torch.nn.Module, fqn: str):
     # don't convert the output module
     if fqn == "proj_out":
@@ -217,6 +258,7 @@ def _build_q_metric_specs(args: Any, device: torch.device) -> list[dict[str, Any
         "musiq": "musiq",
         "lpips": "lpips",
         "dists": "dists",
+        "aesop": "aesop",
     }
     clip_aliases = {"clip-iqa", "clip_iqa", "clipiqa"}
 
@@ -257,6 +299,26 @@ def _build_q_metric_specs(args: Any, device: torch.device) -> list[dict[str, Any
                 f"Unsupported nr_iqa_metric='{raw_label}'. "
                 f"Supported labels: {supported}"
             )
+
+        if metric_name == "aesop":
+            if not args.aesop_autoencoder_path:
+                raise ValueError("`nr_iqa_metric=aesop` requires `--aesop_autoencoder_path`.")
+            spec_name = "aesop"
+            count = name_counts.get(spec_name, 0) + 1
+            name_counts[spec_name] = count
+            log_name = spec_name if count == 1 else f"{spec_name}_{count}"
+            specs.append(
+                {
+                    "name": spec_name,
+                    "log_name": log_name,
+                    "module": None,
+                    "weight": float(weights[idx]),
+                    "scale": 1.0,
+                    "lower_better": True,
+                    "requires_reference": True,
+                }
+            )
+            continue
 
         q_metric_spec = create_q_metric(metric_name, device=device)
         count = name_counts.get(q_metric_spec.name, 0) + 1
@@ -604,6 +666,7 @@ def main(args):
         scheduler=None,
         revision=args.revision,
     )
+    aesop_autoencoder = _load_aesop_autoencoder(args, accelerator.device)
 
     if args.gradient_checkpointing:
         transformer.enable_gradient_checkpointing()
@@ -1172,24 +1235,25 @@ def main(args):
                 else:
                     loss_fm = torch.zeros([], device=model_input.device, dtype=model_pred.dtype)
 
-                # Optional NR-IQA regularization on current-step x0 estimate.
+                # Optional image-space regularization on current-step x0 estimate.
                 use_nr_iqa_loss = args.use_nr_iqa_loss
                 lambda_q = args.lambda_q
                 q_sigma_max = args.q_sigma_max
                 q_loss_active = use_nr_iqa_loss and lambda_q != 0.0
 
-                # Keep VAE on GPU through backward only when Q-loss is active with offload.
+                # Keep VAE on GPU through backward when image-space regularizers are active with offload.
+                image_reg_active = q_loss_active
                 qloss_vae_scope = (
                     offload_models(vae, device=accelerator.device, offload=args.offload)
-                    if q_loss_active and args.offload
+                    if image_reg_active and args.offload
                     else nullcontext()
                 )
-                
+
                 with qloss_vae_scope:
                     loss_q = torch.zeros([], device=model_input.device, dtype=loss_fm.dtype)
                     q_metric_log_values: dict[str, torch.Tensor] = {}
-                    if q_loss_active:
-                        if not hasattr(args, "_q_metric_specs"):
+                    if image_reg_active:
+                        if q_loss_active and not hasattr(args, "_q_metric_specs"):
                             args._q_metric_specs = _build_q_metric_specs(args, accelerator.device)
 
                         sigma_per_sample = sigmas.reshape(sigmas.shape[0], -1)[:, 0]
@@ -1203,15 +1267,24 @@ def main(args):
 
                             sr_hat = vae.decode(x0_hat.to(dtype=vae.dtype), return_dict=False)[0]
                             sr_hat = (sr_hat / 2 + 0.5).clamp(0, 1)
-                            target_pixels = None
-                            if any(spec["requires_reference"] for spec in args._q_metric_specs):
-                                target_pixels = (pixel_values / 2 + 0.5).clamp(0, 1)
+                            target_pixels = (pixel_values / 2 + 0.5).clamp(0, 1)
+
                             batch_size = sr_hat.shape[0]
                             q_weighted_terms: list[torch.Tensor] = []
                             for spec in args._q_metric_specs:
                                 nan_scalar = torch.full([], float("nan"), device=sr_hat.device, dtype=torch.float32)
                                 try:
-                                    if spec["requires_reference"]:
+                                    if spec["name"] == "aesop":
+                                        with offload_models(
+                                            aesop_autoencoder,
+                                            device=accelerator.device,
+                                            offload=args.offload,
+                                        ) if args.offload else nullcontext():
+                                            sr_aesop = aesop_autoencoder(sr_hat.float())
+                                            with torch.no_grad():
+                                                gt_aesop = aesop_autoencoder(target_pixels.float().detach())
+                                        q_score = (sr_aesop - gt_aesop).abs().reshape(batch_size, -1).mean(dim=1)
+                                    elif spec["requires_reference"]:
                                         q_score = spec["module"](sr_hat.float(), target_pixels.float())
                                     else:
                                         q_score = spec["module"](sr_hat.float())

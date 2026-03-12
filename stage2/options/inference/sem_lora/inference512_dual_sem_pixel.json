@@ -1,16 +1,18 @@
 {
   "pretrained_model_name_or_path": "/sr/code/sr/stage2/weights/flux2-klein-base-9b",
-  "pix_lora_weights_path": "/sr/code/sr/stage2/outputs/train/base_512/version_2/128_256/checkpoint-30000/",
+  "pix_lora_weights_path": "/sr/code/sr/stage2/outputs/train/base_512/version_2/l2_128_256_only/checkpoint-30000/",
   "pix_adapter_scale": 1.0,
   "sem_adapter_scale": 1.0,
-  "model_path": "/sr/code/sr/stage2/outputs/train/sem",
+  "model_path": "/sr/code/sr/stage2/outputs/train/sem/pixel",
   "model_names": [
-    "lpips"
+    "lpips", "lpips_dists", "dists"
   ],
-  "lora_weights": "checkpoint-4000",
-  "input_json": "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/result_sample_2.json",
-  "output_dir": "/sr/code/sr/stage2/outputs/inference/dual_sem_metrics",
-  "hr_dir": "",
+  "lora_weights": [
+    "checkpoint-4000"
+  ],
+  "input_json": "/sr/output/test_checkpoints/hat_l_srx4_imagenet_pretrain/result_sample.json",
+  "output_dir": "/sr/code/sr/stage2/outputs/inference/sem/crop/pixel",
+  "hr_dir": "/sr/data/DIV2K/val/HR",
   "output_path": "output_path",
   "evaluation_output_dir": "eval",
   "eval": true,
@@ -21,12 +23,12 @@
   "default_prompt": "",
   "revision": null,
   "variant": null,
-  "crop_mode": "full",
+  "crop_mode": "center_crop",
   "resolution": 512,
-  "mode": "canvas_tile",
+  "mode": "plain",
   "tile_size_px": 512,
   "tile_overlap_ratio": 0.5,
-  "tile_batch_size": 36,
+  "tile_batch_size": 32,
   "sample_batch_size": 1,
   "tile_sigma_ratio": 0.15,
   "canvas_padding_mode": "reflect",
@@ -38,5 +40,5 @@
   "device": "cuda",
   "seed": 0,
   "cpu_offload": true,
-  "gpu_devices": "7"
+  "gpu_devices": "6"
 }

@@ -218,6 +218,10 @@ mapping = {
     "repeats": "CFG_REPEATS",
     "nr_iqa_metric": "CFG_NR_IQA_METRIC",
     "q_metric_weights": "CFG_Q_METRIC_WEIGHTS",
+    "iqa_metric1": "CFG_IQA_METRIC1",
+    "iqa_metric1_weight": "CFG_IQA_METRIC1_WEIGHT",
+    "iqa_metric2": "CFG_IQA_METRIC2",
+    "iqa_metric2_weight": "CFG_IQA_METRIC2_WEIGHT",
     "checkpointing_steps": "CFG_CHECKPOINTING_STEPS",
     "random_flip": "CFG_RANDOM_FLIP",
     "center_crop": "CFG_CENTER_CROP",
@@ -348,16 +352,45 @@ MIXED_PRECISION="${MIXED_PRECISION:-${CFG_MIXED_PRECISION:-bf16}}"
 REPORT_TO="${REPORT_TO:-${CFG_REPORT_TO:-tensorboard}}"
 SEED="${SEED:-${CFG_SEED:-0}}"
 REPEATS="${REPEATS:-${CFG_REPEATS:-1}}"
-NR_IQA_METRIC="${NR_IQA_METRIC:-${CFG_NR_IQA_METRIC:-musiq}}"
-Q_METRIC_WEIGHTS="${Q_METRIC_WEIGHTS:-${CFG_Q_METRIC_WEIGHTS:-}}"
+IQA_METRIC1_RAW="${IQA_METRIC1:-${CFG_IQA_METRIC1:-}}"
+IQA_METRIC1_WEIGHT_RAW="${IQA_METRIC1_WEIGHT:-${CFG_IQA_METRIC1_WEIGHT:-}}"
+IQA_METRIC2_RAW="${IQA_METRIC2:-${CFG_IQA_METRIC2:-}}"
+IQA_METRIC2_WEIGHT_RAW="${IQA_METRIC2_WEIGHT:-${CFG_IQA_METRIC2_WEIGHT:-}}"
+LEGACY_NR_IQA_METRIC_RAW="${NR_IQA_METRIC:-${CFG_NR_IQA_METRIC:-}}"
+LEGACY_Q_METRIC_WEIGHTS_RAW="${Q_METRIC_WEIGHTS:-${CFG_Q_METRIC_WEIGHTS:-}}"
 CHECKPOINTING_STEPS="${CHECKPOINTING_STEPS:-${CFG_CHECKPOINTING_STEPS:-500}}"
 RANDOM_FLIP="${RANDOM_FLIP:-${CFG_RANDOM_FLIP:-0}}"
 CENTER_CROP="${CENTER_CROP:-${CFG_CENTER_CROP:-0}}"
 OFFLOAD="${OFFLOAD:-${CFG_OFFLOAD:-1}}"
 RESUME_FROM_CHECKPOINT="${RESUME_FROM_CHECKPOINT:-${CFG_RESUME_FROM_CHECKPOINT:-}}"
-# Prefer per-run JSON config first so concurrent jobs can target different GPUs reliably.
-GPU_DEVICES="${CFG_GPU_DEVICES:-${GPU_DEVICES:-${CUDA_VISIBLE_DEVICES:-}}}"
+# Environment overrides JSON so batch launchers can pin each job to a specific GPU.
+GPU_DEVICES="${GPU_DEVICES:-${CFG_GPU_DEVICES:-${CUDA_VISIBLE_DEVICES:-}}}"
 GPU_DEVICES="${GPU_DEVICES// /}"
+
+if [[ -n "$IQA_METRIC1_RAW$IQA_METRIC2_RAW$IQA_METRIC1_WEIGHT_RAW$IQA_METRIC2_WEIGHT_RAW" ]]; then
+  if [[ -n "$LEGACY_NR_IQA_METRIC_RAW$LEGACY_Q_METRIC_WEIGHTS_RAW" ]]; then
+    echo "ERROR: options/env cannot mix iqa_metric1/2 with legacy nr_iqa_metric/q_metric_weights." >&2
+    exit 1
+  fi
+  if [[ -z "$IQA_METRIC1_RAW" ]]; then
+    echo "ERROR: iqa_metric1 is required when using the new IQA metric fields." >&2
+    exit 1
+  fi
+  if [[ -z "$IQA_METRIC2_RAW" && -n "$IQA_METRIC2_WEIGHT_RAW" ]]; then
+    echo "ERROR: iqa_metric2_weight requires iqa_metric2." >&2
+    exit 1
+  fi
+
+  NR_IQA_METRIC="$IQA_METRIC1_RAW"
+  Q_METRIC_WEIGHTS="${IQA_METRIC1_WEIGHT_RAW:-1.0}"
+  if [[ -n "$IQA_METRIC2_RAW" ]]; then
+    NR_IQA_METRIC="${NR_IQA_METRIC},${IQA_METRIC2_RAW}"
+    Q_METRIC_WEIGHTS="${Q_METRIC_WEIGHTS},${IQA_METRIC2_WEIGHT_RAW:-1.0}"
+  fi
+else
+  NR_IQA_METRIC="${LEGACY_NR_IQA_METRIC_RAW:-musiq}"
+  Q_METRIC_WEIGHTS="${LEGACY_Q_METRIC_WEIGHTS_RAW:-}"
+fi
 
 if [[ -n "$INSTANCE_PROMPT_NAME" ]]; then
   INSTANCE_PROMPT="$(resolve_prompt_by_name "$PROMPTS_JSON" "$INSTANCE_PROMPT_NAME")"

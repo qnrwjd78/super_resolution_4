@@ -8,6 +8,10 @@ def _parse_csv_items(value):
     return [item.strip() for item in str(value).split(",") if item.strip()]
 
 
+def _format_metric_weight(value):
+    return format(float(value), "g")
+
+
 def parse_args(input_args=None):
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
@@ -303,12 +307,24 @@ def parse_args(input_args=None):
         help="Apply NR-IQA regularization only to samples with sigma <= q_sigma_max.",
     )
     parser.add_argument(
+        "--aesop_autoencoder_path",
+        type=str,
+        default=None,
+        help="Path to the pretrained AESOP autoencoder checkpoint when `nr_iqa_metric` includes `aesop`.",
+    )
+    parser.add_argument(
+        "--aesop_autoencoder_key",
+        type=str,
+        default="params_ema",
+        help="State-dict key inside the AESOP autoencoder checkpoint.",
+    )
+    parser.add_argument(
         "--nr_iqa_metric",
         type=str,
         default="musiq",
         help=(
             "Q-loss metric label or comma-separated metric labels. Supported labels: "
-            "NIQE, ManIQA, MUSIQ, L2, LPIPS, DISTS. (CLIP-IQA excluded)"
+            "NIQE, ManIQA, MUSIQ, L2, LPIPS, DISTS, AESOP. (CLIP-IQA excluded)"
         ),
     )
     parser.add_argument(
@@ -319,6 +335,30 @@ def parse_args(input_args=None):
             "Optional comma-separated per-metric weights aligned with `--nr_iqa_metric`. "
             "Defaults to 1.0 for each metric."
         ),
+    )
+    parser.add_argument(
+        "--iqa_metric1",
+        type=str,
+        default=None,
+        help="Primary Q-loss metric label. Use this instead of `--nr_iqa_metric` for the new config format.",
+    )
+    parser.add_argument(
+        "--iqa_metric1_weight",
+        type=float,
+        default=None,
+        help="Optional weight for `--iqa_metric1`. Defaults to 1.0.",
+    )
+    parser.add_argument(
+        "--iqa_metric2",
+        type=str,
+        default=None,
+        help="Optional secondary Q-loss metric label. Omit it to use single-metric Q-loss.",
+    )
+    parser.add_argument(
+        "--iqa_metric2_weight",
+        type=float,
+        default=None,
+        help="Optional weight for `--iqa_metric2`. Defaults to 1.0.",
     )
     parser.add_argument(
         "--optimizer",
@@ -459,6 +499,35 @@ def parse_args(input_args=None):
 
     if args.resolution <= 0:
         raise ValueError("`--resolution` must be a positive integer.")
+
+    new_metric_fields = (
+        args.iqa_metric1,
+        args.iqa_metric2,
+        args.iqa_metric1_weight,
+        args.iqa_metric2_weight,
+    )
+    uses_new_iqa_fields = any(value is not None for value in new_metric_fields)
+    uses_legacy_iqa_fields = args.nr_iqa_metric != parser.get_default("nr_iqa_metric") or args.q_metric_weights is not None
+
+    if uses_new_iqa_fields and uses_legacy_iqa_fields:
+        raise ValueError(
+            "Use either `--iqa_metric1/2` or legacy `--nr_iqa_metric/--q_metric_weights`, not both."
+        )
+
+    if uses_new_iqa_fields:
+        if not args.iqa_metric1 or not str(args.iqa_metric1).strip():
+            raise ValueError("`--iqa_metric1` is required when using the new IQA metric fields.")
+        if args.iqa_metric2_weight is not None and (not args.iqa_metric2 or not str(args.iqa_metric2).strip()):
+            raise ValueError("`--iqa_metric2_weight` requires `--iqa_metric2`.")
+
+        q_metrics = [str(args.iqa_metric1).strip()]
+        q_metric_weights = [_format_metric_weight(args.iqa_metric1_weight or 1.0)]
+        if args.iqa_metric2 and str(args.iqa_metric2).strip():
+            q_metrics.append(str(args.iqa_metric2).strip())
+            q_metric_weights.append(_format_metric_weight(args.iqa_metric2_weight or 1.0))
+
+        args.nr_iqa_metric = ",".join(q_metrics)
+        args.q_metric_weights = ",".join(q_metric_weights)
 
     q_metrics = _parse_csv_items(args.nr_iqa_metric)
     if not q_metrics:
