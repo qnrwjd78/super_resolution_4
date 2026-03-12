@@ -43,7 +43,7 @@
   "tile_size_px": 512,
   "tile_overlap_ratio": 0.5,
   "tile_batch_size": 48,
-  "sample_batch_size": 10,
+  "sample_batch_size": 5,
   "tile_sigma_ratio": 0.15,
   "canvas_padding_mode": "reflect",
   "canvas_padding_position": "center",
@@ -54,5 +54,5 @@
   "device": "cuda",
   "seed": 0,
   "cpu_offload": true,
-  "gpu_devices": "2,3,4,5"
+  "gpu_devices": "7"
 }
