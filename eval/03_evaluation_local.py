@@ -11,6 +11,8 @@ if str(PROJECT_DIR) not in sys.path:
 if str(STAGE1_DIR) not in sys.path:
     sys.path.insert(0, str(STAGE1_DIR))
 
+from utils.utils_composite_score import attach_composite_score
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -65,6 +67,11 @@ def main():
         res_path = item.get("res")
         if res_path in per_res and isinstance(item.get("scores"), dict):
             item["scores"].update(per_res[res_path])
+        if isinstance(item.get("scores"), dict):
+            attach_composite_score(item["scores"])
+
+    if isinstance(results.get("mean"), dict):
+        attach_composite_score(results["mean"])
 
     if isinstance(rest, dict) and rest.get("note"):
         results["note"] = f'{results.get("note", "")}\n{rest["note"]}'.strip()

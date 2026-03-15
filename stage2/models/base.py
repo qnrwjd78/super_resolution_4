@@ -128,8 +128,14 @@ def load_manifest(data_json_path: str):
     with manifest_path.open("r", encoding="utf-8") as handle:
         entries = json.load(handle)
 
+    if isinstance(entries, dict):
+        if isinstance(entries.get("items"), list):
+            entries = entries["items"]
+        elif isinstance(entries.get("samples"), list):
+            entries = entries["samples"]
+
     if not isinstance(entries, list):
-        raise ValueError("Input manifest must be a JSON array of samples.")
+        raise ValueError("Input manifest must be a JSON array of samples or an object with an `items` array.")
 
     samples = []
     base_dir = manifest_path.parent

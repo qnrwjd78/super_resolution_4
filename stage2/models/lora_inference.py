@@ -142,6 +142,18 @@ def parse_args():
         help="Adapter name to use when loading `--sem_lora_weights_path`.",
     )
     parser.add_argument(
+        "--sem2_lora_weights_path",
+        type=str,
+        default=None,
+        help="Optional directory containing an additional stage2 semantic LoRA.",
+    )
+    parser.add_argument(
+        "--sem2_adapter_name",
+        type=str,
+        default=None,
+        help="Optional second semantic adapter name for legacy two-sem inference.",
+    )
+    parser.add_argument(
         "--pix_adapter_scale",
         type=float,
         default=1.0,
@@ -152,6 +164,33 @@ def parse_args():
         type=float,
         default=1.0,
         help="Adapter scale for the semantic adapter.",
+    )
+    parser.add_argument(
+        "--sem2_adapter_scale",
+        type=float,
+        default=1.0,
+        help="Adapter scale for the optional second semantic adapter.",
+    )
+    parser.add_argument(
+        "--sem_adapter_names",
+        type=str,
+        default=None,
+        help="Optional comma-separated semantic adapter names for multi-sem inference.",
+    )
+    parser.add_argument(
+        "--sem_lora_weights_paths",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated semantic LoRA paths aligned with `--sem_adapter_names`. "
+            "Use empty items or 'none' to skip a slot."
+        ),
+    )
+    parser.add_argument(
+        "--sem_adapter_scales",
+        type=str,
+        default=None,
+        help="Optional comma-separated semantic adapter scales aligned with `--sem_adapter_names`.",
     )
     parser.add_argument(
         "--prompts_json",
@@ -311,7 +350,89 @@ def parse_args():
         default=1,
         help="Sample-level batch size. Applied only when `--mode plain --crop_mode center_crop`.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.sem_adapter_names:
+        sem_adapter_names = [item.strip() for item in str(args.sem_adapter_names).split(",") if item.strip()]
+        if len(set(sem_adapter_names)) != len(sem_adapter_names):
+            raise ValueError(f"Semantic adapter names must be unique. Got: {sem_adapter_names}")
+        if args.pix_adapter_name in set(sem_adapter_names):
+            raise ValueError("`--pix_adapter_name` must be different from every semantic adapter name.")
+    return args
+
+
+def _parse_csv_items(value: Optional[str]) -> list[str]:
+    if value is None:
+        return []
+    return [item.strip() for item in str(value).split(",") if item.strip()]
+
+
+def _parse_csv_nullable_items(value: Optional[str]) -> list[Optional[str]]:
+    if value is None:
+        return []
+    parsed: list[Optional[str]] = []
+    for item in str(value).split(","):
+        item_str = item.strip()
+        if item_str == "" or item_str.lower() in {"none", "null", "__none__"}:
+            parsed.append(None)
+        else:
+            parsed.append(item_str)
+    return parsed
+
+
+def _parse_csv_floats(value: Optional[str]) -> list[float]:
+    values = _parse_csv_items(value)
+    try:
+        return [float(item) for item in values]
+    except ValueError as exc:
+        raise ValueError(f"Expected comma-separated float values, got: {value!r}") from exc
+
+
+def _expand_sem_values(values: list, count: int, default, field_name: str) -> list:
+    if not values:
+        return [default] * count
+    if len(values) == 1 and count > 1:
+        return values * count
+    if len(values) != count:
+        raise ValueError(
+            f"`{field_name}` expects either 1 value or {count} values to match the semantic adapters, got {len(values)}."
+        )
+    return values
+
+
+def _build_sem_adapter_specs(args) -> list[dict[str, object]]:
+    sem_adapter_names = _parse_csv_items(args.sem_adapter_names)
+    if sem_adapter_names:
+        sem_weight_paths = _expand_sem_values(
+            _parse_csv_nullable_items(args.sem_lora_weights_paths),
+            len(sem_adapter_names),
+            args.sem_lora_weights_path,
+            "sem_lora_weights_paths",
+        )
+        sem_adapter_scales = _expand_sem_values(
+            _parse_csv_floats(args.sem_adapter_scales),
+            len(sem_adapter_names),
+            float(args.sem_adapter_scale),
+            "sem_adapter_scales",
+        )
+    elif args.sem2_adapter_name:
+        sem_adapter_names = [args.sem_adapter_name, args.sem2_adapter_name]
+        sem_weight_paths = [args.sem_lora_weights_path, args.sem2_lora_weights_path]
+        sem_adapter_scales = [float(args.sem_adapter_scale), float(args.sem2_adapter_scale)]
+    elif args.sem_lora_weights_path:
+        sem_adapter_names = [args.sem_adapter_name]
+        sem_weight_paths = [args.sem_lora_weights_path]
+        sem_adapter_scales = [float(args.sem_adapter_scale)]
+    else:
+        return []
+
+    return [
+        {
+            "name": name,
+            "weight_path": weight_path,
+            "scale": float(scale),
+        }
+        for name, weight_path, scale in zip(sem_adapter_names, sem_weight_paths, sem_adapter_scales)
+    ]
 
 
 def resolve_dtype(dtype_name: str):
@@ -1113,16 +1234,19 @@ def _set_active_adapters_with_weights(pipeline: Flux2KleinPipeline, adapter_name
 def load_requested_loras(pipeline: Flux2KleinPipeline, args) -> None:
     loaded_adapter_names: list[str] = []
     loaded_adapter_weights: list[float] = []
+    sem_adapter_specs = _build_sem_adapter_specs(args)
 
     if args.pix_lora_weights_path:
         pipeline.load_lora_weights(args.pix_lora_weights_path, adapter_name=args.pix_adapter_name)
         loaded_adapter_names.append(args.pix_adapter_name)
         loaded_adapter_weights.append(args.pix_adapter_scale)
 
-    if args.sem_lora_weights_path:
-        pipeline.load_lora_weights(args.sem_lora_weights_path, adapter_name=args.sem_adapter_name)
-        loaded_adapter_names.append(args.sem_adapter_name)
-        loaded_adapter_weights.append(args.sem_adapter_scale)
+    for spec in sem_adapter_specs:
+        if not spec["weight_path"]:
+            continue
+        pipeline.load_lora_weights(spec["weight_path"], adapter_name=spec["name"])
+        loaded_adapter_names.append(spec["name"])
+        loaded_adapter_weights.append(spec["scale"])
 
     if args.lora_weights_path:
         pipeline.load_lora_weights(args.lora_weights_path, adapter_name="default")

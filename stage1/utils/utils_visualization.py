@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
+from utils.utils_composite_score import attach_composite_score
+
 
 @dataclass
 class EvalRun:
@@ -17,7 +19,7 @@ class EvalRun:
     per_image: List[Dict[str, Any]]
 
 
-_DEFAULT_METRICS = ["niqe", "maniqa", "musiq", "clipiqa", "lpips", "dists", "psnr", "ssim"]
+_DEFAULT_METRICS = ["score", "niqe", "maniqa", "musiq", "clipiqa", "lpips", "dists", "psnr", "ssim"]
 DEFAULT_METRICS = list(_DEFAULT_METRICS)
 TEXT_SCALE = 2.0
 
@@ -51,6 +53,8 @@ def load_eval_runs(input_dir: Path) -> List[EvalRun]:
         mean = data.get("mean")
         if not isinstance(mean, dict):
             continue
+        mean = dict(mean)
+        attach_composite_score(mean)
         per_image = data.get("per_image")
         if not isinstance(per_image, list):
             per_image = []

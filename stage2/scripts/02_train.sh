@@ -192,10 +192,24 @@ mapping = {
     "revision": "CFG_REVISION",
     "variant": "CFG_VARIANT",
     "pix_lora_weights_path": "CFG_PIX_LORA_WEIGHTS_PATH",
+    "sem_lora_weights_path": "CFG_SEM_LORA_WEIGHTS_PATH",
+    "sem2_lora_weights_path": "CFG_SEM2_LORA_WEIGHTS_PATH",
     "pix_adapter_name": "CFG_PIX_ADAPTER_NAME",
     "sem_adapter_name": "CFG_SEM_ADAPTER_NAME",
+    "sem2_adapter_name": "CFG_SEM2_ADAPTER_NAME",
     "pix_adapter_scale": "CFG_PIX_ADAPTER_SCALE",
     "sem_adapter_scale": "CFG_SEM_ADAPTER_SCALE",
+    "sem2_adapter_scale": "CFG_SEM2_ADAPTER_SCALE",
+    "sem_adapter_names": "CFG_SEM_ADAPTER_NAMES",
+    "sem_lora_weights_paths": "CFG_SEM_LORA_WEIGHTS_PATHS",
+    "sem_adapter_scales": "CFG_SEM_ADAPTER_SCALES",
+    "sem_trainable_adapter_names": "CFG_SEM_TRAINABLE_ADAPTER_NAMES",
+    "sem_rank": "CFG_SEM_RANK",
+    "sem2_rank": "CFG_SEM2_RANK",
+    "sem_ranks": "CFG_SEM_RANKS",
+    "sem_lora_alpha": "CFG_SEM_LORA_ALPHA",
+    "sem2_lora_alpha": "CFG_SEM2_LORA_ALPHA",
+    "sem_lora_alphas": "CFG_SEM_LORA_ALPHAS",
     "train_data_json": "CFG_TRAIN_DATA_JSON",
     "output_dir": "CFG_OUTPUT_DIR",
     "prompts_json": "CFG_PROMPTS_JSON",
@@ -327,10 +341,24 @@ MODEL_PATH="${MODEL_PATH:-${CFG_MODEL_PATH:-$STAGE2_DIR/weights/flux2-klein-base
 REVISION="${REVISION:-${CFG_REVISION:-}}"
 VARIANT="${VARIANT:-${CFG_VARIANT:-}}"
 PIX_LORA_WEIGHTS_PATH="${PIX_LORA_WEIGHTS_PATH:-${CFG_PIX_LORA_WEIGHTS_PATH:-}}"
+SEM_LORA_WEIGHTS_PATH="${SEM_LORA_WEIGHTS_PATH:-${CFG_SEM_LORA_WEIGHTS_PATH:-}}"
+SEM2_LORA_WEIGHTS_PATH="${SEM2_LORA_WEIGHTS_PATH:-${CFG_SEM2_LORA_WEIGHTS_PATH:-}}"
 PIX_ADAPTER_NAME="${PIX_ADAPTER_NAME:-${CFG_PIX_ADAPTER_NAME:-pix}}"
 SEM_ADAPTER_NAME="${SEM_ADAPTER_NAME:-${CFG_SEM_ADAPTER_NAME:-sem}}"
+SEM2_ADAPTER_NAME="${SEM2_ADAPTER_NAME:-${CFG_SEM2_ADAPTER_NAME:-}}"
 PIX_ADAPTER_SCALE="${PIX_ADAPTER_SCALE:-${CFG_PIX_ADAPTER_SCALE:-1.0}}"
 SEM_ADAPTER_SCALE="${SEM_ADAPTER_SCALE:-${CFG_SEM_ADAPTER_SCALE:-1.0}}"
+SEM2_ADAPTER_SCALE="${SEM2_ADAPTER_SCALE:-${CFG_SEM2_ADAPTER_SCALE:-1.0}}"
+SEM_ADAPTER_NAMES="${SEM_ADAPTER_NAMES:-${CFG_SEM_ADAPTER_NAMES:-}}"
+SEM_LORA_WEIGHTS_PATHS="${SEM_LORA_WEIGHTS_PATHS:-${CFG_SEM_LORA_WEIGHTS_PATHS:-}}"
+SEM_ADAPTER_SCALES="${SEM_ADAPTER_SCALES:-${CFG_SEM_ADAPTER_SCALES:-}}"
+SEM_TRAINABLE_ADAPTER_NAMES="${SEM_TRAINABLE_ADAPTER_NAMES:-${CFG_SEM_TRAINABLE_ADAPTER_NAMES:-}}"
+SEM_RANK="${SEM_RANK:-${CFG_SEM_RANK:-}}"
+SEM2_RANK="${SEM2_RANK:-${CFG_SEM2_RANK:-}}"
+SEM_RANKS="${SEM_RANKS:-${CFG_SEM_RANKS:-}}"
+SEM_LORA_ALPHA="${SEM_LORA_ALPHA:-${CFG_SEM_LORA_ALPHA:-}}"
+SEM2_LORA_ALPHA="${SEM2_LORA_ALPHA:-${CFG_SEM2_LORA_ALPHA:-}}"
+SEM_LORA_ALPHAS="${SEM_LORA_ALPHAS:-${CFG_SEM_LORA_ALPHAS:-}}"
 TRAIN_DATA_JSON="${TRAIN_DATA_JSON:-${CFG_TRAIN_DATA_JSON:-}}"
 OUTPUT_DIR="${OUTPUT_DIR:-${CFG_OUTPUT_DIR:-$STAGE2_DIR/outputs/lora_train}}"
 PROMPTS_JSON="${PROMPTS_JSON:-${CFG_PROMPTS_JSON:-$DEFAULT_PROMPTS_JSON}}"
@@ -549,6 +577,14 @@ if [[ -n "$PIX_LORA_WEIGHTS_PATH" ]]; then
   ARGS+=(--pix_lora_weights_path "$PIX_LORA_WEIGHTS_PATH")
 fi
 
+if [[ -n "$SEM_LORA_WEIGHTS_PATH" ]]; then
+  ARGS+=(--sem_lora_weights_path "$SEM_LORA_WEIGHTS_PATH")
+fi
+
+if [[ -n "$SEM2_LORA_WEIGHTS_PATH" ]]; then
+  ARGS+=(--sem2_lora_weights_path "$SEM2_LORA_WEIGHTS_PATH")
+fi
+
 if [[ -n "$PIX_ADAPTER_NAME" ]]; then
   ARGS+=(--pix_adapter_name "$PIX_ADAPTER_NAME")
 fi
@@ -557,12 +593,60 @@ if [[ -n "$SEM_ADAPTER_NAME" ]]; then
   ARGS+=(--sem_adapter_name "$SEM_ADAPTER_NAME")
 fi
 
+if [[ -n "$SEM2_ADAPTER_NAME" ]]; then
+  ARGS+=(--sem2_adapter_name "$SEM2_ADAPTER_NAME")
+fi
+
 if [[ -n "$PIX_ADAPTER_SCALE" ]]; then
   ARGS+=(--pix_adapter_scale "$PIX_ADAPTER_SCALE")
 fi
 
 if [[ -n "$SEM_ADAPTER_SCALE" ]]; then
   ARGS+=(--sem_adapter_scale "$SEM_ADAPTER_SCALE")
+fi
+
+if [[ -n "$SEM2_ADAPTER_SCALE" ]]; then
+  ARGS+=(--sem2_adapter_scale "$SEM2_ADAPTER_SCALE")
+fi
+
+if [[ -n "$SEM_ADAPTER_NAMES" ]]; then
+  ARGS+=(--sem_adapter_names "$SEM_ADAPTER_NAMES")
+fi
+
+if [[ -n "$SEM_LORA_WEIGHTS_PATHS" ]]; then
+  ARGS+=(--sem_lora_weights_paths "$SEM_LORA_WEIGHTS_PATHS")
+fi
+
+if [[ -n "$SEM_ADAPTER_SCALES" ]]; then
+  ARGS+=(--sem_adapter_scales "$SEM_ADAPTER_SCALES")
+fi
+
+if [[ -n "$SEM_TRAINABLE_ADAPTER_NAMES" ]]; then
+  ARGS+=(--sem_trainable_adapter_names "$SEM_TRAINABLE_ADAPTER_NAMES")
+fi
+
+if [[ -n "$SEM_RANK" ]]; then
+  ARGS+=(--sem_rank "$SEM_RANK")
+fi
+
+if [[ -n "$SEM2_RANK" ]]; then
+  ARGS+=(--sem2_rank "$SEM2_RANK")
+fi
+
+if [[ -n "$SEM_RANKS" ]]; then
+  ARGS+=(--sem_ranks "$SEM_RANKS")
+fi
+
+if [[ -n "$SEM_LORA_ALPHA" ]]; then
+  ARGS+=(--sem_lora_alpha "$SEM_LORA_ALPHA")
+fi
+
+if [[ -n "$SEM2_LORA_ALPHA" ]]; then
+  ARGS+=(--sem2_lora_alpha "$SEM2_LORA_ALPHA")
+fi
+
+if [[ -n "$SEM_LORA_ALPHAS" ]]; then
+  ARGS+=(--sem_lora_alphas "$SEM_LORA_ALPHAS")
 fi
 
 if [[ -n "$LORA_WEIGHTS_PATH" ]]; then

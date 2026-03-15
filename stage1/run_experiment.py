@@ -10,7 +10,9 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-VALID_ENVS = ("sr", "dat", "eval")
+from tqdm import tqdm
+
+VALID_ENVS = ("sr", "dat", "eval", "hat")
 
 
 def _load_json(path: Path) -> Any:
@@ -122,8 +124,6 @@ def _load_registry(reg_path: Path, sr_dir: Path) -> Tuple[Dict[str, Path], Dict[
         key = _expect_str(k, what="model key")
         path_str = _expect_str(v, what=f"model_registry.model[{key!r}] path")
         p = _resolve_script_path(path_str, sr_dir)
-        if not p.is_file():
-            raise SystemExit(f"[ERROR] Model script not found: key={key!r} path={p}")
         models[key] = p
 
     weights: Dict[str, Tuple[Path, Optional[Path]]] = {}
@@ -143,14 +143,10 @@ def _load_registry(reg_path: Path, sr_dir: Path) -> Tuple[Dict[str, Path], Dict[
             )
 
         weight_path = _resolve_script_path(weight_path_str, sr_dir)
-        if not weight_path.is_file():
-            raise SystemExit(f"[ERROR] Weight not found: key={key!r} path={weight_path}")
 
         opt_path: Optional[Path] = None
         if opt_path_str:
             opt_path = _resolve_script_path(opt_path_str, sr_dir)
-            if not opt_path.is_file():
-                raise SystemExit(f"[ERROR] Opt not found: key={key!r} opt_path={opt_path}")
 
         weights[key] = (weight_path, opt_path)
 
@@ -240,7 +236,7 @@ def main() -> None:
 
     seen_tests = set()
 
-    for idx, s in enumerate(setting):
+    for idx, s in enumerate(tqdm(setting, desc="Experiments", unit="exp")):
         if not isinstance(s, dict):
             raise SystemExit(f"[ERROR] experiment.setting[{idx}] must be an object.")
 
@@ -265,7 +261,11 @@ def main() -> None:
             raise SystemExit(f"[ERROR] Unknown weight key: {weight_key!r}. Available: {sorted(weights.keys())}")
 
         model_script = models[model_key]
+        if not model_script.is_file():
+            raise SystemExit(f"[ERROR] Model script not found: key={model_key!r} path={model_script}")
         weight_path, registry_opt_path = weights[weight_key]
+        if not weight_path.is_file():
+            raise SystemExit(f"[ERROR] Weight not found: key={weight_key!r} path={weight_path}")
         setting_opt_path: Optional[Path] = None
         if setting_opt_raw:
             setting_opt_path = _resolve_script_path(setting_opt_raw, sr_dir)
@@ -274,6 +274,8 @@ def main() -> None:
                     f"[ERROR] opt not found: setting={test_name!r} key={weight_key!r} opt={setting_opt_path}"
                 )
         opt_path = setting_opt_path if setting_opt_path is not None else registry_opt_path
+        if opt_path is not None and not opt_path.is_file():
+            raise SystemExit(f"[ERROR] Opt not found: key={weight_key!r} opt_path={opt_path}")
         weight_flag = _detect_weight_flag(model_script)
         supports_opt = _script_supports_flag(model_script, "--opt")
 

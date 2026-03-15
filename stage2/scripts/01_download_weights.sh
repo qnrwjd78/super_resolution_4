@@ -54,9 +54,34 @@ hf_cli() {
 
 has_hf_token() {
   run_flux2_python - <<'PY'
-from huggingface_hub import HfFolder
+import os
+from pathlib import Path
 import sys
-sys.exit(0 if HfFolder.get_token() else 1)
+
+token = None
+
+try:
+    from huggingface_hub import get_token  # huggingface_hub >= 0.20
+    token = get_token()
+except Exception:
+    token = None
+
+if not token:
+    try:
+        from huggingface_hub import HfFolder  # older huggingface_hub
+        token = HfFolder.get_token()
+    except Exception:
+        token = None
+
+if not token:
+    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+
+if not token:
+    token_file = Path.home() / ".cache" / "huggingface" / "token"
+    if token_file.is_file():
+        token = token_file.read_text(encoding="utf-8").strip()
+
+sys.exit(0 if token else 1)
 PY
 }
 

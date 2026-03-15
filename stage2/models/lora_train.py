@@ -169,6 +169,106 @@ def _parse_csv_floats(value: Any) -> list[float]:
         raise ValueError(f"Expected comma-separated float values, got: {value!r}") from exc
 
 
+def _parse_csv_ints(value: Any) -> list[int]:
+    values = _parse_csv_str(value)
+    try:
+        return [int(item) for item in values]
+    except ValueError as exc:
+        raise ValueError(f"Expected comma-separated integer values, got: {value!r}") from exc
+
+
+def _parse_csv_nullable_str(value: Any) -> list[str | None]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        items = value
+    else:
+        items = str(value).split(",")
+
+    parsed: list[str | None] = []
+    for item in items:
+        item_str = str(item).strip()
+        if item_str == "" or item_str.lower() in {"none", "null", "__none__"}:
+            parsed.append(None)
+        else:
+            parsed.append(item_str)
+    return parsed
+
+
+def _expand_sem_stage2_values(values: list[Any], count: int, default: Any, field_name: str) -> list[Any]:
+    if not values:
+        return [default] * count
+    if len(values) == 1 and count > 1:
+        return values * count
+    if len(values) != count:
+        raise ValueError(
+            f"`{field_name}` expects either 1 value or {count} values to match the semantic adapters, got {len(values)}."
+        )
+    return values
+
+
+def _build_sem_stage2_specs(args: Any) -> list[dict[str, Any]]:
+    sem_adapter_names = _parse_csv_str(getattr(args, "sem_adapter_names", None))
+    if sem_adapter_names:
+        sem_weight_paths = _expand_sem_stage2_values(
+            _parse_csv_nullable_str(getattr(args, "sem_lora_weights_paths", None)),
+            len(sem_adapter_names),
+            getattr(args, "sem_lora_weights_path", None),
+            "sem_lora_weights_paths",
+        )
+        sem_adapter_scales = _expand_sem_stage2_values(
+            _parse_csv_floats(getattr(args, "sem_adapter_scales", None)),
+            len(sem_adapter_names),
+            float(args.sem_adapter_scale),
+            "sem_adapter_scales",
+        )
+        sem_ranks = _expand_sem_stage2_values(
+            _parse_csv_ints(getattr(args, "sem_ranks", None)),
+            len(sem_adapter_names),
+            int(args.sem_rank if getattr(args, "sem_rank", None) is not None else args.rank),
+            "sem_ranks",
+        )
+        sem_lora_alphas = _expand_sem_stage2_values(
+            _parse_csv_ints(getattr(args, "sem_lora_alphas", None)),
+            len(sem_adapter_names),
+            int(args.sem_lora_alpha if getattr(args, "sem_lora_alpha", None) is not None else args.lora_alpha),
+            "sem_lora_alphas",
+        )
+    elif getattr(args, "sem2_adapter_name", None):
+        sem_adapter_names = [args.sem_adapter_name, args.sem2_adapter_name]
+        sem_weight_paths = [getattr(args, "sem_lora_weights_path", None), getattr(args, "sem2_lora_weights_path", None)]
+        sem_adapter_scales = [float(args.sem_adapter_scale), float(getattr(args, "sem2_adapter_scale", 1.0))]
+        sem_ranks = [
+            int(args.sem_rank if getattr(args, "sem_rank", None) is not None else args.rank),
+            int(args.sem2_rank if getattr(args, "sem2_rank", None) is not None else args.rank),
+        ]
+        sem_lora_alphas = [
+            int(args.sem_lora_alpha if getattr(args, "sem_lora_alpha", None) is not None else args.lora_alpha),
+            int(args.sem2_lora_alpha if getattr(args, "sem2_lora_alpha", None) is not None else args.lora_alpha),
+        ]
+    else:
+        sem_adapter_names = [args.sem_adapter_name]
+        sem_weight_paths = [getattr(args, "sem_lora_weights_path", None)]
+        sem_adapter_scales = [float(args.sem_adapter_scale)]
+        sem_ranks = [int(args.sem_rank if getattr(args, "sem_rank", None) is not None else args.rank)]
+        sem_lora_alphas = [
+            int(args.sem_lora_alpha if getattr(args, "sem_lora_alpha", None) is not None else args.lora_alpha)
+        ]
+
+    return [
+        {
+            "name": name,
+            "weight_path": weight_path,
+            "scale": float(scale),
+            "rank": int(rank),
+            "lora_alpha": int(alpha),
+        }
+        for name, weight_path, scale, rank, alpha in zip(
+            sem_adapter_names, sem_weight_paths, sem_adapter_scales, sem_ranks, sem_lora_alphas
+        )
+    ]
+
+
 def _expand_q_metric_values(
     values: list[float],
     count: int,
@@ -272,16 +372,19 @@ def _build_q_metric_specs(args: Any, device: torch.device) -> list[dict[str, Any
         1.0,
         "q_metric_weights",
     )
-    try:
-        from local_iqa import create_q_metric
-    except Exception:
-        project_root = Path(__file__).resolve().parents[2]
-        if str(project_root) not in sys.path:
-            sys.path.insert(0, str(project_root))
+    create_q_metric = None
+    needs_local_iqa = any(metric_aliases.get(label.strip().lower()) not in {None, "aesop"} for label in metric_labels)
+    if needs_local_iqa:
         try:
             from local_iqa import create_q_metric
-        except Exception as nested_exc:
-            raise RuntimeError("NR-IQA loss requested but `local_iqa` is not available in the runtime.") from nested_exc
+        except Exception:
+            project_root = Path(__file__).resolve().parents[2]
+            if str(project_root) not in sys.path:
+                sys.path.insert(0, str(project_root))
+            try:
+                from local_iqa import create_q_metric
+            except Exception as nested_exc:
+                raise RuntimeError("NR-IQA loss requested but `local_iqa` is not available in the runtime.") from nested_exc
 
     name_counts: dict[str, int] = {}
     specs: list[dict[str, Any]] = []
@@ -320,6 +423,10 @@ def _build_q_metric_specs(args: Any, device: torch.device) -> list[dict[str, Any
             )
             continue
 
+        if create_q_metric is None:
+            raise RuntimeError(
+                f"Metric '{metric_name}' requires local_iqa, but the helper was not initialized."
+            )
         q_metric_spec = create_q_metric(metric_name, device=device)
         count = name_counts.get(q_metric_spec.name, 0) + 1
         name_counts[q_metric_spec.name] = count
@@ -455,6 +562,34 @@ def get_adapter_peft_state_dict(model: torch.nn.Module, adapter_name: str, state
         return get_peft_model_state_dict(model, **peft_kwargs)
 
 
+def filter_state_dict_for_adapter(
+    state_dict: dict[str, Any],
+    adapter_name: str,
+    known_adapter_names: list[str],
+) -> dict[str, Any]:
+    other_markers = tuple(f".{name}." for name in known_adapter_names if name != adapter_name)
+    if not other_markers:
+        return state_dict
+
+    filtered_state_dict = {
+        key: value
+        for key, value in state_dict.items()
+        if not any(marker in key for marker in other_markers)
+    }
+    removed_keys = sorted(set(state_dict) - set(filtered_state_dict))
+    if removed_keys:
+        preview = ", ".join(removed_keys[:4])
+        if len(removed_keys) > 4:
+            preview += ", ..."
+        logger.warning(
+            "Filtered %d unexpected tensors while saving adapter '%s': %s",
+            len(removed_keys),
+            adapter_name,
+            preview,
+        )
+    return filtered_state_dict
+
+
 def collate_lora_metadata_for_adapter(modules_to_save: dict[str, Any], adapter_name: str) -> dict[str, Any]:
     metadatas: dict[str, Any] = {}
 
@@ -472,6 +607,36 @@ def collate_lora_metadata_for_adapter(modules_to_save: dict[str, Any], adapter_n
         metadatas[f"{module_name}_lora_adapter_metadata"] = peft_config[adapter_name].to_dict()
 
     return metadatas
+
+
+def activate_stage2_adapters(
+    model: torch.nn.Module,
+    pix_adapter_name: str,
+    sem_adapter_specs: list[dict[str, Any]],
+    pix_adapter_scale: float,
+) -> None:
+    set_active_lora_adapters(
+        model,
+        [pix_adapter_name, *[spec["name"] for spec in sem_adapter_specs]],
+        [float(pix_adapter_scale), *[float(spec["scale"]) for spec in sem_adapter_specs]],
+    )
+
+
+def set_stage2_adapter_trainability(
+    model: torch.nn.Module,
+    pix_adapter_name: str,
+    sem_adapter_specs: list[dict[str, Any]],
+    trainable_adapter_names: list[str],
+) -> tuple[int, dict[str, int]]:
+    trainable_name_set = set(trainable_adapter_names)
+    pix_param_count = set_adapter_requires_grad(model, pix_adapter_name, False)
+    sem_param_counts: dict[str, int] = {}
+    for spec in sem_adapter_specs:
+        adapter_name = spec["name"]
+        sem_param_counts[adapter_name] = set_adapter_requires_grad(
+            model, adapter_name, adapter_name in trainable_name_set
+        )
+    return pix_param_count, sem_param_counts
 
 
 def main(args):
@@ -528,11 +693,22 @@ def main(args):
 
     sem_stage2_mode = bool(getattr(args, "train_sem_only", False))
     pix_adapter_name = args.pix_adapter_name if sem_stage2_mode else "default"
-    sem_adapter_name = args.sem_adapter_name if sem_stage2_mode else None
-    trainable_adapter_name = sem_adapter_name if sem_stage2_mode else "default"
+    sem_adapter_specs = _build_sem_stage2_specs(args) if sem_stage2_mode else []
+    sem_adapter_names = [spec["name"] for spec in sem_adapter_specs]
+    trainable_adapter_names = (
+        _parse_csv_str(getattr(args, "sem_trainable_adapter_names", None)) or sem_adapter_names
+    ) if sem_stage2_mode else ["default"]
+    trainable_adapter_name_set = set(trainable_adapter_names)
+    frozen_sem_adapter_names = [
+        adapter_name for adapter_name in sem_adapter_names if adapter_name not in trainable_adapter_name_set
+    ]
+    save_adapter_names = trainable_adapter_names if sem_stage2_mode else ["default"]
+    known_adapter_names_for_save = [pix_adapter_name, *sem_adapter_names] if sem_stage2_mode else save_adapter_names
     pix_lora_source = None
 
     if sem_stage2_mode:
+        if not sem_adapter_specs:
+            raise ValueError("Stage2 sem-only mode requires at least one semantic adapter spec.")
         pix_lora_source = args.pix_lora_weights_path or args.lora_weights_path
         if not pix_lora_source:
             raise ValueError(
@@ -672,23 +848,44 @@ def main(args):
         transformer.enable_gradient_checkpointing()
 
     if args.lora_layers is not None:
-        target_modules = [layer.strip() for layer in args.lora_layers.split(",")]
+        target_modules = [layer.strip() for layer in args.lora_layers.split(",") if layer.strip()]
+        if not target_modules:
+            target_modules = ["to_k", "to_q", "to_v", "to_out.0"]
     else:
         target_modules = ["to_k", "to_q", "to_v", "to_out.0"]
 
-    # now we will add new LoRA weights the transformer layers
-    transformer_lora_config = LoraConfig(
+    pix_transformer_lora_config = LoraConfig(
         r=args.rank,
         lora_alpha=args.lora_alpha,
         lora_dropout=args.lora_dropout,
         init_lora_weights="gaussian",
         target_modules=target_modules,
     )
+    sem_transformer_lora_configs = {
+        spec["name"]: LoraConfig(
+            r=spec["rank"],
+            lora_alpha=spec["lora_alpha"],
+            lora_dropout=args.lora_dropout,
+            init_lora_weights="gaussian",
+            target_modules=target_modules,
+        )
+        for spec in sem_adapter_specs
+    }
     if sem_stage2_mode:
-        add_lora_adapter(transformer, transformer_lora_config, adapter_name=pix_adapter_name)
-        add_lora_adapter(transformer, transformer_lora_config, adapter_name=sem_adapter_name)
+        add_lora_adapter(transformer, pix_transformer_lora_config, adapter_name=pix_adapter_name)
+        for spec in sem_adapter_specs:
+            add_lora_adapter(transformer, sem_transformer_lora_configs[spec["name"]], adapter_name=spec["name"])
+        logger.info(
+            "Stage2 adapter config: pix(rank=%d, alpha=%d), sem=%s",
+            args.rank,
+            args.lora_alpha,
+            ", ".join(
+                f"{spec['name']}(rank={spec['rank']}, alpha={spec['lora_alpha']}, scale={spec['scale']})"
+                for spec in sem_adapter_specs
+            ),
+        )
     else:
-        add_lora_adapter(transformer, transformer_lora_config, adapter_name="default")
+        add_lora_adapter(transformer, pix_transformer_lora_config, adapter_name="default")
 
     def load_lora_into_transformer(transformer_model, input_dir, adapter_name="default"):
         lora_state_dict = Flux2KleinPipeline.lora_state_dict(input_dir)
@@ -710,23 +907,21 @@ def main(args):
         logger.info("Loading frozen pix LoRA from %s", pix_lora_source)
         load_lora_into_transformer(transformer, pix_lora_source, adapter_name=pix_adapter_name)
 
-        if args.sem_lora_weights_path:
-            logger.info("Loading initial sem LoRA weights from %s", args.sem_lora_weights_path)
-            load_lora_into_transformer(transformer, args.sem_lora_weights_path, adapter_name=sem_adapter_name)
+        for spec in sem_adapter_specs:
+            if spec["weight_path"]:
+                logger.info("Loading initial sem LoRA weights for '%s' from %s", spec["name"], spec["weight_path"])
+                load_lora_into_transformer(transformer, spec["weight_path"], adapter_name=spec["name"])
 
-        set_active_lora_adapters(
-            transformer,
-            [pix_adapter_name, sem_adapter_name],
-            [args.pix_adapter_scale, args.sem_adapter_scale],
+        activate_stage2_adapters(transformer, pix_adapter_name, sem_adapter_specs, args.pix_adapter_scale)
+        pix_param_count, sem_param_counts = set_stage2_adapter_trainability(
+            transformer, pix_adapter_name, sem_adapter_specs, trainable_adapter_names
         )
-        pix_param_count = set_adapter_requires_grad(transformer, pix_adapter_name, False)
-        sem_param_count = set_adapter_requires_grad(transformer, sem_adapter_name, True)
         logger.info(
-            "Stage2 sem-only mode active: pix adapter '%s' frozen (%d params), sem adapter '%s' trainable (%d params).",
+            "Stage2 sem-only mode active: pix adapter '%s' frozen (%d params), trainable sem adapters: %s, frozen sem adapters: %s",
             pix_adapter_name,
             pix_param_count,
-            sem_adapter_name,
-            sem_param_count,
+            ", ".join(f"{name} ({sem_param_counts[name]} params)" for name in trainable_adapter_names) or "<none>",
+            ", ".join(frozen_sem_adapter_names) or "<none>",
         )
     elif args.lora_weights_path:
         logger.info(f"Loading initial LoRA weights from {args.lora_weights_path}")
@@ -756,29 +951,35 @@ def main(args):
             raise ValueError("No transformer model found in 'models'")
 
         # 2) Optionally gather FSDP state dict once
-        state_dict = accelerator.get_state_dict(model) if is_fsdp else None
+        state_dict = accelerator.get_state_dict(transformer_model) if is_fsdp else None
 
         # 3) Only main process materializes the LoRA state dict
-        transformer_lora_layers_to_save = None
         if accelerator.is_main_process:
-            transformer_lora_layers_to_save = get_adapter_peft_state_dict(
-                unwrap_model(transformer_model) if is_fsdp else transformer_model,
-                adapter_name=trainable_adapter_name,
-                state_dict=state_dict,
-            )
+            for adapter_name in save_adapter_names:
+                adapter_output_dir = output_dir if len(save_adapter_names) == 1 else os.path.join(output_dir, adapter_name)
+                transformer_lora_layers_to_save = get_adapter_peft_state_dict(
+                    unwrap_model(transformer_model) if is_fsdp else transformer_model,
+                    adapter_name=adapter_name,
+                    state_dict=state_dict,
+                )
+                transformer_lora_layers_to_save = filter_state_dict_for_adapter(
+                    transformer_lora_layers_to_save,
+                    adapter_name=adapter_name,
+                    known_adapter_names=known_adapter_names_for_save,
+                )
 
-            if is_fsdp:
-                transformer_lora_layers_to_save = _to_cpu_contiguous(transformer_lora_layers_to_save)
+                if is_fsdp:
+                    transformer_lora_layers_to_save = _to_cpu_contiguous(transformer_lora_layers_to_save)
 
-            # make sure to pop weight so that corresponding model is not saved again
-            if weights:
-                weights.pop()
+                Flux2KleinPipeline.save_lora_weights(
+                    adapter_output_dir,
+                    transformer_lora_layers=transformer_lora_layers_to_save,
+                    **collate_lora_metadata_for_adapter(modules_to_save, adapter_name),
+                )
 
-            Flux2KleinPipeline.save_lora_weights(
-                output_dir,
-                transformer_lora_layers=transformer_lora_layers_to_save,
-                **collate_lora_metadata_for_adapter(modules_to_save, trainable_adapter_name),
-            )
+        # make sure to pop weight so that corresponding model is not saved again
+        if weights:
+            weights.pop()
 
     def load_model_hook(models, input_dir):
         transformer_ = None
@@ -797,28 +998,24 @@ def main(args):
                 subfolder="transformer",
             )
             if sem_stage2_mode:
-                add_lora_adapter(transformer_, transformer_lora_config, adapter_name=pix_adapter_name)
-                add_lora_adapter(transformer_, transformer_lora_config, adapter_name=sem_adapter_name)
+                add_lora_adapter(transformer_, pix_transformer_lora_config, adapter_name=pix_adapter_name)
+                for spec in sem_adapter_specs:
+                    add_lora_adapter(transformer_, sem_transformer_lora_configs[spec["name"]], adapter_name=spec["name"])
                 load_lora_into_transformer(transformer_, pix_lora_source, adapter_name=pix_adapter_name)
-                set_active_lora_adapters(
-                    transformer_,
-                    [pix_adapter_name, sem_adapter_name],
-                    [args.pix_adapter_scale, args.sem_adapter_scale],
-                )
-                set_adapter_requires_grad(transformer_, pix_adapter_name, False)
-                set_adapter_requires_grad(transformer_, sem_adapter_name, True)
+                for spec in sem_adapter_specs:
+                    if spec["weight_path"]:
+                        load_lora_into_transformer(transformer_, spec["weight_path"], adapter_name=spec["name"])
+                activate_stage2_adapters(transformer_, pix_adapter_name, sem_adapter_specs, args.pix_adapter_scale)
+                set_stage2_adapter_trainability(transformer_, pix_adapter_name, sem_adapter_specs, trainable_adapter_names)
             else:
-                add_lora_adapter(transformer_, transformer_lora_config, adapter_name="default")
+                add_lora_adapter(transformer_, pix_transformer_lora_config, adapter_name="default")
 
-        load_lora_into_transformer(transformer_, input_dir, adapter_name=trainable_adapter_name)
+        for adapter_name in save_adapter_names:
+            adapter_input_dir = input_dir if len(save_adapter_names) == 1 else os.path.join(input_dir, adapter_name)
+            load_lora_into_transformer(transformer_, adapter_input_dir, adapter_name=adapter_name)
         if sem_stage2_mode:
-            set_active_lora_adapters(
-                transformer_,
-                [pix_adapter_name, sem_adapter_name],
-                [args.pix_adapter_scale, args.sem_adapter_scale],
-            )
-            set_adapter_requires_grad(transformer_, pix_adapter_name, False)
-            set_adapter_requires_grad(transformer_, sem_adapter_name, True)
+            activate_stage2_adapters(transformer_, pix_adapter_name, sem_adapter_specs, args.pix_adapter_scale)
+            set_stage2_adapter_trainability(transformer_, pix_adapter_name, sem_adapter_specs, trainable_adapter_names)
 
         # Make sure the trainable params are in float32. This is again needed since the base models
         # are in `weight_dtype`. More details:
@@ -994,13 +1191,10 @@ def main(args):
     )
     if sem_stage2_mode:
         unwrapped_transformer = unwrap_model(transformer)
-        set_active_lora_adapters(
-            unwrapped_transformer,
-            [pix_adapter_name, sem_adapter_name],
-            [args.pix_adapter_scale, args.sem_adapter_scale],
+        activate_stage2_adapters(unwrapped_transformer, pix_adapter_name, sem_adapter_specs, args.pix_adapter_scale)
+        set_stage2_adapter_trainability(
+            unwrapped_transformer, pix_adapter_name, sem_adapter_specs, trainable_adapter_names
         )
-        set_adapter_requires_grad(unwrapped_transformer, pix_adapter_name, False)
-        set_adapter_requires_grad(unwrapped_transformer, sem_adapter_name, True)
 
     transformer_guidance_embeds = bool(getattr(unwrap_model(transformer).config, "guidance_embeds", False))
 
@@ -1092,10 +1286,9 @@ def main(args):
         transformer.train()
 
         for step, batch in enumerate(train_dataloader):
-            models_to_accumulate = [transformer]
             prompts = batch["prompts"]
 
-            with accelerator.accumulate(models_to_accumulate):
+            with accelerator.accumulate(transformer):
                 if train_dataset.custom_instance_prompts:
                     if args.fsdp_text_encoder:
                         prompt_embeds, text_ids = compute_text_embeddings(prompts, text_encoding_pipeline)
@@ -1334,30 +1527,31 @@ def main(args):
                 progress_bar.update(1)
                 global_step += 1
 
-                if accelerator.is_main_process or is_fsdp:
-                    if global_step % args.checkpointing_steps == 0:
-                        # _before_ saving state, check if this save would set us over the `checkpoints_total_limit`
-                        if args.checkpoints_total_limit is not None:
-                            checkpoints = os.listdir(args.output_dir)
-                            checkpoints = [d for d in checkpoints if d.startswith("checkpoint")]
-                            checkpoints = sorted(checkpoints, key=lambda x: int(x.split("-")[1]))
+                if global_step % args.checkpointing_steps == 0:
+                    if accelerator.is_main_process and args.checkpoints_total_limit is not None:
+                        checkpoints = os.listdir(args.output_dir)
+                        checkpoints = [d for d in checkpoints if d.startswith("checkpoint")]
+                        checkpoints = sorted(checkpoints, key=lambda x: int(x.split("-")[1]))
 
-                            # before we save the new checkpoint, we need to have at _most_ `checkpoints_total_limit - 1` checkpoints
-                            if len(checkpoints) >= args.checkpoints_total_limit:
-                                num_to_remove = len(checkpoints) - args.checkpoints_total_limit + 1
-                                removing_checkpoints = checkpoints[0:num_to_remove]
+                        # before we save the new checkpoint, we need to have at most `checkpoints_total_limit - 1` checkpoints
+                        if len(checkpoints) >= args.checkpoints_total_limit:
+                            num_to_remove = len(checkpoints) - args.checkpoints_total_limit + 1
+                            removing_checkpoints = checkpoints[0:num_to_remove]
 
-                                logger.info(
-                                    f"{len(checkpoints)} checkpoints already exist, removing {len(removing_checkpoints)} checkpoints"
-                                )
-                                logger.info(f"removing checkpoints: {', '.join(removing_checkpoints)}")
+                            logger.info(
+                                f"{len(checkpoints)} checkpoints already exist, removing {len(removing_checkpoints)} checkpoints"
+                            )
+                            logger.info(f"removing checkpoints: {', '.join(removing_checkpoints)}")
 
-                                for removing_checkpoint in removing_checkpoints:
-                                    removing_checkpoint = os.path.join(args.output_dir, removing_checkpoint)
-                                    shutil.rmtree(removing_checkpoint)
+                            for removing_checkpoint in removing_checkpoints:
+                                removing_checkpoint = os.path.join(args.output_dir, removing_checkpoint)
+                                shutil.rmtree(removing_checkpoint)
 
-                        save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
-                        accelerator.save_state(save_path)
+                    accelerator.wait_for_everyone()
+                    save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
+                    accelerator.save_state(save_path)
+                    accelerator.wait_for_everyone()
+                    if accelerator.is_main_process:
                         logger.info(f"Saved state to {save_path}")
 
             logs = {
@@ -1393,15 +1587,22 @@ def main(args):
                         k: v.to(weight_dtype) if isinstance(v, torch.Tensor) else v for k, v in state_dict.items()
                     }
 
-            transformer_lora_layers = get_adapter_peft_state_dict(
-                transformer,
-                adapter_name=trainable_adapter_name,
-                state_dict=state_dict,
-            )
-            transformer_lora_layers = {
-                k: v.detach().cpu().contiguous() if isinstance(v, torch.Tensor) else v
-                for k, v in transformer_lora_layers.items()
-            }
+            transformer_lora_layers_by_adapter = {}
+            for adapter_name in save_adapter_names:
+                transformer_lora_layers = get_adapter_peft_state_dict(
+                    transformer,
+                    adapter_name=adapter_name,
+                    state_dict=state_dict,
+                )
+                transformer_lora_layers = filter_state_dict_for_adapter(
+                    transformer_lora_layers,
+                    adapter_name=adapter_name,
+                    known_adapter_names=known_adapter_names_for_save,
+                )
+                transformer_lora_layers_by_adapter[adapter_name] = {
+                    k: v.detach().cpu().contiguous() if isinstance(v, torch.Tensor) else v
+                    for k, v in transformer_lora_layers.items()
+                }
 
         else:
             transformer = unwrap_model(transformer)
@@ -1410,17 +1611,24 @@ def main(args):
                     transformer.to(torch.float32)
                 else:
                     transformer = transformer.to(weight_dtype)
-            transformer_lora_layers = get_adapter_peft_state_dict(
-                transformer, adapter_name=trainable_adapter_name
-            )
+            transformer_lora_layers_by_adapter = {
+                adapter_name: filter_state_dict_for_adapter(
+                    get_adapter_peft_state_dict(transformer, adapter_name=adapter_name),
+                    adapter_name=adapter_name,
+                    known_adapter_names=known_adapter_names_for_save,
+                )
+                for adapter_name in save_adapter_names
+            }
 
         modules_to_save["transformer"] = transformer
 
-        Flux2KleinPipeline.save_lora_weights(
-            save_directory=args.output_dir,
-            transformer_lora_layers=transformer_lora_layers,
-            **collate_lora_metadata_for_adapter(modules_to_save, trainable_adapter_name),
-        )
+        for adapter_name, transformer_lora_layers in transformer_lora_layers_by_adapter.items():
+            adapter_output_dir = args.output_dir if len(save_adapter_names) == 1 else os.path.join(args.output_dir, adapter_name)
+            Flux2KleinPipeline.save_lora_weights(
+                save_directory=adapter_output_dir,
+                transformer_lora_layers=transformer_lora_layers,
+                **collate_lora_metadata_for_adapter(modules_to_save, adapter_name),
+            )
 
         save_model_card(
             (args.hub_model_id or Path(args.output_dir).name) if not args.push_to_hub else repo_id,

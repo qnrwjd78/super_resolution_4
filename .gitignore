@@ -4,8 +4,8 @@
 # 모델 출력 결과
 output/
 stage1/outputs/
-stage2/outputs/train
-stage2/outputs/inference
+stage2/outputs/
+stage2/options/
 
 # 모델 체크포인트
 stage1/weights/

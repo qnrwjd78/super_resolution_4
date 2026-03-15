@@ -78,6 +78,89 @@ parse_lora_weights() {
   done
 }
 
+parse_csv_items() {
+  local raw="${1:-}"
+  local item=""
+  local old_ifs="$IFS"
+  IFS=","
+  read -r -a _items <<< "$raw"
+  IFS="$old_ifs"
+  for item in "${_items[@]}"; do
+    item="${item#"${item%%[![:space:]]*}"}"
+    item="${item%"${item##*[![:space:]]}"}"
+    [[ -n "$item" ]] && printf "%s\n" "$item"
+  done
+}
+
+join_csv_items() {
+  local old_ifs="$IFS"
+  IFS=","
+  echo "$*"
+  IFS="$old_ifs"
+}
+
+resolve_sem_path_item() {
+  local raw_path="$1"
+  local sem_checkpoint_root="$2"
+  local adapter_name="$3"
+  local multi_sem_mode="$4"
+
+  if [[ -z "$raw_path" || "${raw_path,,}" == "default" || "${raw_path,,}" == "__default__" ]]; then
+    if [[ "$multi_sem_mode" == "1" ]]; then
+      echo "${sem_checkpoint_root%/}/${adapter_name}"
+    else
+      echo "$sem_checkpoint_root"
+    fi
+    return 0
+  fi
+
+  if [[ "$raw_path" == /* ]]; then
+    echo "$raw_path"
+    return 0
+  fi
+
+  if [[ "$raw_path" == "final" ]]; then
+    if [[ "$multi_sem_mode" == "1" ]]; then
+      echo "${MODEL_PATH%/}/${MODEL_NAME}/${adapter_name}"
+    else
+      echo "${MODEL_PATH%/}/${MODEL_NAME}"
+    fi
+    return 0
+  fi
+
+  echo "${MODEL_PATH%/}/${MODEL_NAME}/${raw_path#/}"
+}
+
+resolve_sem_adapter_paths_csv() {
+  local sem_names_csv="$1"
+  local explicit_paths_csv="$2"
+  local sem_checkpoint_root="$3"
+  local -a sem_names=()
+  local -a raw_paths=()
+  local -a resolved_paths=()
+  local multi_sem_mode="0"
+  local idx=0
+
+  mapfile -t sem_names < <(parse_csv_items "$sem_names_csv")
+  if [[ ${#sem_names[@]} -gt 1 ]]; then
+    multi_sem_mode="1"
+  fi
+
+  if [[ -n "$explicit_paths_csv" ]]; then
+    mapfile -t raw_paths < <(parse_csv_items "$explicit_paths_csv")
+    for ((idx=0; idx<${#raw_paths[@]}; idx++)); do
+      local adapter_name="${sem_names[idx]:-${SEM_ADAPTER_NAME}}"
+      resolved_paths+=("$(resolve_sem_path_item "${raw_paths[idx]}" "$sem_checkpoint_root" "$adapter_name" "$multi_sem_mode")")
+    done
+  else
+    for adapter_name in "${sem_names[@]}"; do
+      resolved_paths+=("$(resolve_sem_path_item "" "$sem_checkpoint_root" "$adapter_name" "$multi_sem_mode")")
+    done
+  fi
+
+  join_csv_items "${resolved_paths[@]}"
+}
+
 run_inference_job() {
   local gpu_device="$1"
   local run_name="$2"
@@ -132,14 +215,49 @@ run_inference_job() {
   fi
 
   if [[ -n "$PIX_LORA_WEIGHTS_PATH" ]]; then
+    local sem_names_csv="${SEM_ADAPTER_NAMES:-}"
+    local sem_paths_csv=""
+    local sem_scales_csv="${SEM_ADAPTER_SCALES:-}"
+
     args+=(
       --pix_lora_weights_path "$PIX_LORA_WEIGHTS_PATH"
-      --sem_lora_weights_path "$sem_checkpoint_path"
       --pix_adapter_name "$PIX_ADAPTER_NAME"
-      --sem_adapter_name "$SEM_ADAPTER_NAME"
       --pix_adapter_scale "$PIX_ADAPTER_SCALE"
-      --sem_adapter_scale "$SEM_ADAPTER_SCALE"
     )
+
+    if [[ -z "$sem_names_csv" && -n "$SEM2_ADAPTER_NAME" ]]; then
+      sem_names_csv="${SEM_ADAPTER_NAME},${SEM2_ADAPTER_NAME}"
+      if [[ -z "$sem_scales_csv" ]]; then
+        sem_scales_csv="${SEM_ADAPTER_SCALE},${SEM2_ADAPTER_SCALE}"
+      fi
+    fi
+
+    if [[ -n "$sem_names_csv" || -n "$SEM_LORA_WEIGHTS_PATHS" || -n "$SEM2_LORA_WEIGHTS_PATH" ]]; then
+      if [[ -z "$sem_names_csv" ]]; then
+        sem_names_csv="$SEM_ADAPTER_NAME"
+      fi
+      if [[ -n "$SEM_LORA_WEIGHTS_PATHS" ]]; then
+        sem_paths_csv="$(resolve_sem_adapter_paths_csv "$sem_names_csv" "$SEM_LORA_WEIGHTS_PATHS" "$sem_checkpoint_path")"
+      elif [[ -n "$SEM2_LORA_WEIGHTS_PATH" ]]; then
+        sem_paths_csv="$(resolve_sem_adapter_paths_csv "$sem_names_csv" "${SEM_LORA_WEIGHTS_PATH:-default},${SEM2_LORA_WEIGHTS_PATH}" "$sem_checkpoint_path")"
+      else
+        sem_paths_csv="$(resolve_sem_adapter_paths_csv "$sem_names_csv" "" "$sem_checkpoint_path")"
+      fi
+
+      args+=(
+        --sem_adapter_names "$sem_names_csv"
+        --sem_lora_weights_paths "$sem_paths_csv"
+      )
+      if [[ -n "$sem_scales_csv" ]]; then
+        args+=(--sem_adapter_scales "$sem_scales_csv")
+      fi
+    else
+      args+=(
+        --sem_lora_weights_path "$sem_checkpoint_path"
+        --sem_adapter_name "$SEM_ADAPTER_NAME"
+        --sem_adapter_scale "$SEM_ADAPTER_SCALE"
+      )
+    fi
   else
     args+=(--lora_weights_path "$model_checkpoint_path")
   fi
@@ -255,10 +373,16 @@ mapping = {
     "model_names": "CFG_MODEL_NAMES",
     "pix_lora_weights_path": "CFG_PIX_LORA_WEIGHTS_PATH",
     "sem_lora_weights_path": "CFG_SEM_LORA_WEIGHTS_PATH",
+    "sem2_lora_weights_path": "CFG_SEM2_LORA_WEIGHTS_PATH",
     "pix_adapter_name": "CFG_PIX_ADAPTER_NAME",
     "sem_adapter_name": "CFG_SEM_ADAPTER_NAME",
+    "sem2_adapter_name": "CFG_SEM2_ADAPTER_NAME",
     "pix_adapter_scale": "CFG_PIX_ADAPTER_SCALE",
     "sem_adapter_scale": "CFG_SEM_ADAPTER_SCALE",
+    "sem2_adapter_scale": "CFG_SEM2_ADAPTER_SCALE",
+    "sem_adapter_names": "CFG_SEM_ADAPTER_NAMES",
+    "sem_lora_weights_paths": "CFG_SEM_LORA_WEIGHTS_PATHS",
+    "sem_adapter_scales": "CFG_SEM_ADAPTER_SCALES",
     "input_json": "CFG_INPUT_JSON",
     "output_dir": "CFG_OUTPUT_DIR",
     "hr_dir": "CFG_HR_DIR",
@@ -319,10 +443,16 @@ MODEL_PATH="${MODEL_PATH:-${CFG_MODEL_PATH:-}}"
 MODEL_NAMES_RAW="${MODEL_NAMES:-${MODEL_NAME:-${CFG_MODEL_NAMES:-${CFG_MODEL_NAME:-}}}}"
 PIX_LORA_WEIGHTS_PATH="${PIX_LORA_WEIGHTS_PATH:-${CFG_PIX_LORA_WEIGHTS_PATH:-}}"
 SEM_LORA_WEIGHTS_PATH="${SEM_LORA_WEIGHTS_PATH:-${CFG_SEM_LORA_WEIGHTS_PATH:-}}"
+SEM2_LORA_WEIGHTS_PATH="${SEM2_LORA_WEIGHTS_PATH:-${CFG_SEM2_LORA_WEIGHTS_PATH:-}}"
 PIX_ADAPTER_NAME="${PIX_ADAPTER_NAME:-${CFG_PIX_ADAPTER_NAME:-pix}}"
 SEM_ADAPTER_NAME="${SEM_ADAPTER_NAME:-${CFG_SEM_ADAPTER_NAME:-sem}}"
+SEM2_ADAPTER_NAME="${SEM2_ADAPTER_NAME:-${CFG_SEM2_ADAPTER_NAME:-}}"
 PIX_ADAPTER_SCALE="${PIX_ADAPTER_SCALE:-${CFG_PIX_ADAPTER_SCALE:-1.0}}"
 SEM_ADAPTER_SCALE="${SEM_ADAPTER_SCALE:-${CFG_SEM_ADAPTER_SCALE:-1.0}}"
+SEM2_ADAPTER_SCALE="${SEM2_ADAPTER_SCALE:-${CFG_SEM2_ADAPTER_SCALE:-1.0}}"
+SEM_ADAPTER_NAMES="${SEM_ADAPTER_NAMES:-${CFG_SEM_ADAPTER_NAMES:-}}"
+SEM_LORA_WEIGHTS_PATHS="${SEM_LORA_WEIGHTS_PATHS:-${CFG_SEM_LORA_WEIGHTS_PATHS:-}}"
+SEM_ADAPTER_SCALES="${SEM_ADAPTER_SCALES:-${CFG_SEM_ADAPTER_SCALES:-}}"
 INPUT_JSON="${INPUT_JSON:-${CFG_INPUT_JSON:-}}"
 OUTPUT_DIR="${OUTPUT_DIR:-${CFG_OUTPUT_DIR:-$DEFAULT_OUTPUT_DIR}}"
 HR_DIR="${HR_DIR:-${CFG_HR_DIR:-}}"
@@ -388,7 +518,7 @@ if [[ -z "$PIX_LORA_WEIGHTS_PATH" ]]; then
     exit 1
   fi
 else
-  if [[ -z "$SEM_LORA_WEIGHTS_PATH" ]]; then
+  if [[ -z "$SEM_LORA_WEIGHTS_PATH" && -z "$SEM_LORA_WEIGHTS_PATHS" && -z "$SEM2_LORA_WEIGHTS_PATH" ]]; then
     if [[ -z "$MODEL_PATH" ]]; then
       echo "ERROR: dual-LoRA mode requires MODEL_PATH as the sem checkpoint root when SEM_LORA_WEIGHTS_PATH is unset." >&2
       exit 1
@@ -472,10 +602,16 @@ echo "MODEL_NAMES            : ${MODEL_NAMES[*]}"
 echo "LORA_WEIGHTS           : ${LORA_WEIGHT_ITEMS[*]}"
 echo "PIX_LORA_WEIGHTS_PATH  : ${PIX_LORA_WEIGHTS_PATH:-<none>}"
 echo "SEM_LORA_WEIGHTS_PATH  : ${SEM_LORA_WEIGHTS_PATH:-<per-model>}"
+echo "SEM2_LORA_WEIGHTS_PATH : ${SEM2_LORA_WEIGHTS_PATH:-<none>}"
 echo "PIX_ADAPTER_NAME       : $PIX_ADAPTER_NAME"
 echo "SEM_ADAPTER_NAME       : $SEM_ADAPTER_NAME"
+echo "SEM2_ADAPTER_NAME      : ${SEM2_ADAPTER_NAME:-<none>}"
 echo "PIX_ADAPTER_SCALE      : $PIX_ADAPTER_SCALE"
 echo "SEM_ADAPTER_SCALE      : $SEM_ADAPTER_SCALE"
+echo "SEM2_ADAPTER_SCALE     : ${SEM2_ADAPTER_SCALE:-<none>}"
+echo "SEM_ADAPTER_NAMES      : ${SEM_ADAPTER_NAMES:-<legacy-single-sem>}"
+echo "SEM_LORA_WEIGHTS_PATHS : ${SEM_LORA_WEIGHTS_PATHS:-<auto>}"
+echo "SEM_ADAPTER_SCALES     : ${SEM_ADAPTER_SCALES:-<auto>}"
 echo "INPUT_JSON             : $INPUT_JSON"
 echo "OUTPUT_DIR             : $OUTPUT_DIR"
 echo "OUTPUT_PATH_DIR        : $OUTPUT_PATH_DIR"
@@ -566,13 +702,17 @@ for MODEL_NAME in "${MODEL_NAMES[@]}"; do
     MODEL_SEM_LORA_WEIGHTS_PATH="$SEM_LORA_WEIGHTS_PATH"
     RUN_NAME="${MODEL_NAME}_${LORA_WEIGHT_ITEM}"
     if [[ -z "$PIX_LORA_WEIGHTS_PATH" ]]; then
-      if [[ "$MODEL_LORA_WEIGHTS_PATH" != /* ]]; then
+      if [[ "$MODEL_LORA_WEIGHTS_PATH" == "final" ]]; then
+        MODEL_LORA_WEIGHTS_PATH="${MODEL_PATH%/}/${MODEL_NAME}"
+      elif [[ "$MODEL_LORA_WEIGHTS_PATH" != /* ]]; then
         MODEL_LORA_WEIGHTS_PATH="${MODEL_PATH%/}/${MODEL_NAME}/${MODEL_LORA_WEIGHTS_PATH#/}"
       fi
     else
       if [[ -z "$MODEL_SEM_LORA_WEIGHTS_PATH" ]]; then
         MODEL_SEM_LORA_WEIGHTS_PATH="$LORA_WEIGHT_ITEM"
-        if [[ "$MODEL_SEM_LORA_WEIGHTS_PATH" != /* ]]; then
+        if [[ "$MODEL_SEM_LORA_WEIGHTS_PATH" == "final" ]]; then
+          MODEL_SEM_LORA_WEIGHTS_PATH="${MODEL_PATH%/}/${MODEL_NAME}"
+        elif [[ "$MODEL_SEM_LORA_WEIGHTS_PATH" != /* ]]; then
           MODEL_SEM_LORA_WEIGHTS_PATH="${MODEL_PATH%/}/${MODEL_NAME}/${MODEL_SEM_LORA_WEIGHTS_PATH#/}"
         fi
       elif [[ "$MODEL_SEM_LORA_WEIGHTS_PATH" != /* ]]; then

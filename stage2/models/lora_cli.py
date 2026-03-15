@@ -87,6 +87,18 @@ def parse_args(input_args=None):
         help="Adapter name used for the trainable semantic LoRA in stage2 mode.",
     )
     parser.add_argument(
+        "--sem2_lora_weights_path",
+        type=str,
+        default=None,
+        help="Optional path to initialize an additional semantic adapter (`sem2`) before stage2 training.",
+    )
+    parser.add_argument(
+        "--sem2_adapter_name",
+        type=str,
+        default=None,
+        help="Optional second semantic adapter name for stage2 training.",
+    )
+    parser.add_argument(
         "--pix_adapter_scale",
         type=float,
         default=1.0,
@@ -97,6 +109,78 @@ def parse_args(input_args=None):
         type=float,
         default=1.0,
         help="Runtime adapter scale used for the trainable `sem` adapter in stage2 mode.",
+    )
+    parser.add_argument(
+        "--sem2_adapter_scale",
+        type=float,
+        default=1.0,
+        help="Runtime adapter scale used for the optional `sem2` adapter in stage2 mode.",
+    )
+    parser.add_argument(
+        "--sem_adapter_names",
+        type=str,
+        default=None,
+        help="Optional comma-separated semantic adapter names for multi-sem stage2 training.",
+    )
+    parser.add_argument(
+        "--sem_lora_weights_paths",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated semantic adapter initialization paths aligned with `--sem_adapter_names`. "
+            "Use empty items or 'none' to skip initialization for a given adapter."
+        ),
+    )
+    parser.add_argument(
+        "--sem_adapter_scales",
+        type=str,
+        default=None,
+        help="Optional comma-separated runtime scales aligned with `--sem_adapter_names`.",
+    )
+    parser.add_argument(
+        "--sem_trainable_adapter_names",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated subset of semantic adapter names to optimize. "
+            "Defaults to all semantic adapters."
+        ),
+    )
+    parser.add_argument(
+        "--sem_rank",
+        type=int,
+        default=None,
+        help="Optional rank override for semantic adapters when stage2 multi-sem mode is enabled.",
+    )
+    parser.add_argument(
+        "--sem2_rank",
+        type=int,
+        default=None,
+        help="Optional rank override for the legacy `sem2` adapter alias.",
+    )
+    parser.add_argument(
+        "--sem_ranks",
+        type=str,
+        default=None,
+        help="Optional comma-separated semantic adapter ranks aligned with `--sem_adapter_names`.",
+    )
+    parser.add_argument(
+        "--sem_lora_alpha",
+        type=int,
+        default=None,
+        help="Optional alpha override for semantic adapters when stage2 multi-sem mode is enabled.",
+    )
+    parser.add_argument(
+        "--sem2_lora_alpha",
+        type=int,
+        default=None,
+        help="Optional alpha override for the legacy `sem2` adapter alias.",
+    )
+    parser.add_argument(
+        "--sem_lora_alphas",
+        type=str,
+        default=None,
+        help="Optional comma-separated semantic adapter alpha values aligned with `--sem_adapter_names`.",
     )
     parser.add_argument(
         "--train_data_json",
@@ -542,13 +626,39 @@ def parse_args(input_args=None):
             )
 
     if args.train_sem_only:
-        if args.pix_adapter_name == args.sem_adapter_name:
-            raise ValueError("`--pix_adapter_name` and `--sem_adapter_name` must be different.")
-
         if args.pix_lora_weights_path is None and args.lora_weights_path is None:
             raise ValueError(
                 "Stage2 mode requires an existing pixel LoRA. Set `--pix_lora_weights_path` (or legacy `--lora_weights_path`)."
             )
+
+        sem_adapter_names = _parse_csv_items(args.sem_adapter_names)
+        if not sem_adapter_names:
+            sem_adapter_names = [args.sem_adapter_name]
+            if args.sem2_adapter_name and str(args.sem2_adapter_name).strip():
+                sem_adapter_names.append(str(args.sem2_adapter_name).strip())
+
+        if any(not name for name in sem_adapter_names):
+            raise ValueError("Semantic adapter names must be non-empty strings.")
+
+        if len(set(sem_adapter_names)) != len(sem_adapter_names):
+            raise ValueError(f"Semantic adapter names must be unique. Got: {sem_adapter_names}")
+
+        if args.pix_adapter_name in set(sem_adapter_names):
+            raise ValueError("`--pix_adapter_name` must be different from every semantic adapter name.")
+
+        trainable_adapter_names = _parse_csv_items(args.sem_trainable_adapter_names) or sem_adapter_names
+        if len(set(trainable_adapter_names)) != len(trainable_adapter_names):
+            raise ValueError(f"Trainable semantic adapter names must be unique. Got: {trainable_adapter_names}")
+
+        missing_trainable_names = [name for name in trainable_adapter_names if name not in set(sem_adapter_names)]
+        if missing_trainable_names:
+            raise ValueError(
+                "`--sem_trainable_adapter_names` must be a subset of the semantic adapter names. "
+                f"Unknown names: {missing_trainable_names}"
+            )
+
+        if not trainable_adapter_names:
+            raise ValueError("Stage2 multi-sem mode requires at least one trainable semantic adapter.")
 
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:

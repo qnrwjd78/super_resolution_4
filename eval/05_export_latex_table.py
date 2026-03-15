@@ -4,13 +4,23 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-DEFAULT_METRICS = ["niqe", "maniqa", "musiq", "clipiqa", "lpips", "dists", "psnr", "ssim"]
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+STAGE1_DIR = PROJECT_DIR / "stage1"
+if str(STAGE1_DIR) not in sys.path:
+    sys.path.insert(0, str(STAGE1_DIR))
+
+from utils.utils_composite_score import attach_composite_score
+
+
+DEFAULT_METRICS = ["score", "niqe", "maniqa", "musiq", "clipiqa", "lpips", "dists", "psnr", "ssim"]
 DEFAULT_LOWER_BETTER = {"niqe", "lpips", "dists"}
 METRIC_GROUPS = [
+    ("Composite", ["score"]),
     ("No-reference", ["niqe", "maniqa", "musiq", "clipiqa"]),
     ("Full-reference", ["lpips", "dists"]),
     ("Restoration", ["psnr", "ssim"]),
@@ -59,6 +69,7 @@ def _load_rows(input_dir: Path) -> List[EvalRow]:
             x = _as_float(v)
             if x is not None:
                 parsed[str(k)] = x
+        attach_composite_score(parsed)
         rows.append(EvalRow(name=_infer_name(p), mean=parsed))
     return rows
 

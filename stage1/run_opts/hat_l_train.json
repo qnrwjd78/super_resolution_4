@@ -1,6 +1,6 @@
 {
-  "data_input": "data/train_DIV2K.json",
-  "output_path": "data/DIV2K_trainset_w_hat_l",
+  "data_input": "data/val.json",
+  "output_path": "data/DIV2K_valset_w_hat_l",
   "eval_env": "eval",
   "viz_env": "eval",
   "setting": [
@@ -8,7 +8,7 @@
       "test_name": "hat_l_srx4_imagenet_pretrain",
       "model": "hat",
       "weight": "hat_l_srx4_imagenet_pretrain",
-      "env": "sr"
+      "env": "hat"
     }  
   ]
 }
