@@ -1,0 +1,34 @@
+{
+  "pretrained_model_name_or_path": "weights/flux2-klein-base-9b",
+  "model_path": "final/outputs/train/stage1",
+  "model_names": [
+    "pixel_aesop_1024"
+  ],
+  "lora_weights": [
+    "checkpoint-30000"
+  ],
+  "input_json": "/sr/data/result_sample.json",
+  "output_dir": "final/outputs/inference/full/stage1",
+  "output_path": "output_path",
+  "eval": false,
+  "prompts_json": "prompts.json",
+  "prompt_name": "test_3",
+  "crop_mode": "full",
+  "resolution": 1024,
+  "mode": "plain",
+  "tile_size_px": 1024,
+  "tile_overlap_ratio": 0.25,
+  "tile_batch_size": 8,
+  "sample_batch_size": 1,
+  "tile_sigma_ratio": 0.15,
+  "canvas_padding_mode": "reflect",
+  "canvas_padding_position": "center",
+  "canvas_padding_value": 0.0,
+  "guidance_scale": 4.0,
+  "num_inference_steps": 50,
+  "dtype": "bf16",
+  "device": "cuda",
+  "seed": 0,
+  "cpu_offload": true,
+  "gpu_devices": "0"
+}

@@ -1,0 +1,56 @@
+{
+  "pretrained_model_name_or_path": "weights/flux2-klein-base-9b",
+  "pix_lora_weights_path": "final/outputs/train/stage1/pixel_aesop_1024/checkpoint-30000",
+  "pix_adapter_name": "pix",
+  "pix_adapter_scale": 1.0,
+  "sem_adapter_name": "sem",
+  "sem2_adapter_name": "sem2",
+  "sem_adapter_names": [
+    "sem",
+    "sem2"
+  ],
+  "sem_lora_weights_paths": [
+    "../../stage2/sem_dists_r128_1024",
+    "."
+  ],
+  "sem_adapter_scales": [
+    1.0,
+    1.0
+  ],
+  "model_path": "final/outputs/train/stage3",
+  "model_names": [
+    "sem2_lpips_musiq_r128_w0p2_1024",
+    "sem2_lpips_musiq_r128_w0p3_1024",
+    "sem2_lpips_musiq_r128_w0p35_1024",
+    "sem2_lpips_musiq_r128_w0p4_1024",
+    "sem2_lpips_musiq_r128_w0p45_1024",
+    "sem2_lpips_musiq_r128_w0p5_1024"
+  ],
+  "lora_weights": [
+    "final"
+  ],
+  "input_json": "/sr/data/result_sample.json",
+  "output_dir": "final/outputs/inference/crop/stage3/r128",
+  "output_path": "output_path",
+  "eval": false,
+  "prompts_json": "prompts.json",
+  "prompt_name": "test_3",
+  "crop_mode": "center_crop",
+  "resolution": 1024,
+  "mode": "plain",
+  "tile_size_px": 1024,
+  "tile_overlap_ratio": 0.25,
+  "tile_batch_size": 8,
+  "sample_batch_size": 1,
+  "tile_sigma_ratio": 0.15,
+  "canvas_padding_mode": "reflect",
+  "canvas_padding_position": "center",
+  "canvas_padding_value": 0.0,
+  "guidance_scale": 4.0,
+  "num_inference_steps": 50,
+  "dtype": "bf16",
+  "device": "cuda",
+  "seed": 0,
+  "cpu_offload": true,
+  "gpu_devices": "0"
+}
